@@ -3,7 +3,10 @@ from dataclasses import dataclass
 
 @dataclass
 class APIGadget:
-    pass
+    name: str
+    return_type: str
+    arguments: list[tuple[str | None, str]]
+    _meta: dict
 
 
 class ASTParser:

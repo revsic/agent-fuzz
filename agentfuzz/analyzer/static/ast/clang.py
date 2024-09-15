@@ -1,5 +1,8 @@
 import json
+import os
+import re
 import subprocess
+import traceback
 
 from agentfuzz.analyzer.static.ast.base import APIGadget, ASTParser
 
@@ -21,10 +24,44 @@ class ClangASTParser(ASTParser):
         Returns:
             list of API gadgets.
         """
-        pass
+        assert os.path.exists(source), f"FILE DOES NOT EXIST, {source}"
 
-    @staticmethod
-    def _run_ast_dump(source: str, include_path: str | list[str] | None = None):
+        top_node = self._run_ast_dump(source, self.include_path)
+        assert "error" not in top_node, top_node
+
+        gadgets = []
+        # traversal
+        stack = [top_node]
+        while stack:
+            node = stack.pop()
+            # TODO: Supports `FunctionTemplateDecl`
+            if node["kind"] not in ["FunctionDecl"]:
+                stack.extend(node.get("inner", []))
+                continue
+            # function decl found
+            type_ = node["type"]["qualType"]
+            # parse type
+            ((return_t, args_t),) = re.findall(r"^(.+?)\s*\((.*?)\)$", type_)
+            arguments = [
+                (subnode.get("name", None), subnode["type"]["qualType"])
+                for subnode in node.get("inner", [])
+                if subnode["kind"] == "ParmVarDecl"
+            ]
+            # sanity check
+            assert args_t == ", ".join(t for _, t in arguments)
+            gadget = APIGadget(
+                name=node["name"],
+                return_type=return_t,
+                arguments=arguments,
+                _meta={
+                    "node": node,
+                },
+            )
+            gadgets.append(gadget)
+        return gadgets
+
+    @classmethod
+    def _run_ast_dump(cls, source: str, include_path: str | list[str] | None = None):
         """Run the clang with ast-dump options.
         Args:
             source: a path to the target source file.
@@ -52,4 +89,11 @@ class ClangASTParser(ASTParser):
             capture_output=True,
         )
         ast = proc.stdout.decode("utf-8")
-        return json.loads(ast)
+        try:
+            return json.loads(ast)
+        except Exception as e:
+            return {
+                "error": e,
+                "_traceback": traceback.format_exc(),
+                "_stdout": ast,
+            }
