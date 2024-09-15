@@ -1,0 +1,2 @@
+class ASTParser:
+    pass
