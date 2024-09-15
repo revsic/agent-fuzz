@@ -16,6 +16,8 @@ class ClangASTParser(ASTParser):
             include_path: paths to the directories for `#incldue` preprocessor.
         """
         self.include_path = include_path
+        # for dumping cache
+        self._ast_caches = {}
 
     def parse_api_gadget(self, source: str) -> APIGadget:
         """Parse the API infos from the header file.
@@ -25,16 +27,13 @@ class ClangASTParser(ASTParser):
             list of API gadgets.
         """
         assert os.path.exists(source), f"FILE DOES NOT EXIST, {source}"
-
-        top_node = self._run_ast_dump(source, self.include_path)
+        # parse tree, cache supports
+        top_node = self._parse_to_ast(source)
         assert "error" not in top_node, top_node
-
-        gadgets = []
         # traversal
-        stack = [top_node]
+        gadgets, stack = [], [top_node]
         while stack:
             node = stack.pop()
-            # TODO: Supports `FunctionTemplateDecl`
             if node["kind"] not in ["FunctionDecl"]:
                 stack.extend(node.get("inner", []))
                 continue
@@ -42,6 +41,7 @@ class ClangASTParser(ASTParser):
             type_ = node["type"]["qualType"]
             # parse type
             ((return_t, args_t),) = re.findall(r"^(.+?)\s*\((.*?)\)$", type_)
+            # TODO: Mark as template parameter if `TemplateTypeParmDecl` taken
             arguments = [
                 (subnode.get("name", None), subnode["type"]["qualType"])
                 for subnode in node.get("inner", [])
@@ -59,6 +59,23 @@ class ClangASTParser(ASTParser):
             )
             gadgets.append(gadget)
         return gadgets
+
+    def _parse_to_ast(self, source: str):
+        """Parse the source code to extract the abstract syntax tree.
+        Args:
+            source: a path to the target source file.
+        Returns:
+            parsed abstract syntax tree.
+        """
+        with open(source) as f:
+            code = f.read()
+        _key = (source, code)
+        if _key in self._ast_caches:
+            return self._ast_caches[_key]
+        # dump the ast
+        dumped = self._run_ast_dump(source, self.include_path)
+        self._ast_caches[_key] = dumped
+        return dumped
 
     @classmethod
     def _run_ast_dump(cls, source: str, include_path: str | list[str] | None = None):
