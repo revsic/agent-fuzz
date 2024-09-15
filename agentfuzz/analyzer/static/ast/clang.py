@@ -4,7 +4,7 @@ import re
 import subprocess
 import traceback
 
-from agentfuzz.analyzer.static.ast.base import APIGadget, ASTParser
+from agentfuzz.analyzer.static.ast.base import APIGadget, ASTParser, TypeGadget
 
 
 class ClangASTParser(ASTParser):
@@ -18,6 +18,15 @@ class ClangASTParser(ASTParser):
         self.include_path = include_path
         # for dumping cache
         self._ast_caches = {}
+
+    def parse_type_gadget(self, soruce: str) -> TypeGadget:
+        """Parse the declared type infos from the header file.
+        Args:
+            source: a path to the source code file.
+        Returns:
+            list of type gadgets.
+        """
+        pass
 
     def parse_api_gadget(self, source: str) -> APIGadget:
         """Parse the API infos from the header file.
