@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentfuzz"
+version = "0.0.1"
+authors = [
+  { name="revsic", email="revsic99@gmail.com" },
+]
+description = "Python implementation of LLM Agent-based fuzz-driver generation"
+readme = "README.md"
+requires-python = ">=3.12.1"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    
+]
+
+[project.urls]
+Homepage = "https://github.com/revsic/agent-fuzz"
+Issues = "https://github.com/revsic/agent-fuzz/issues"
+
+[tool.setuptools.packages.find]
+include = ["agentfuzz"]
