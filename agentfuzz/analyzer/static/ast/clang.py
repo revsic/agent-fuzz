@@ -43,22 +43,25 @@ class ClangASTParser(ASTParser):
 
             gadget = TypeGadget(
                 name=node["name"],
+                tag=node.get("tagUsed", "alias"),
+                qualified=node.get("type", {}).get("qualType", None),
                 _meta={"node": node},
             )
             gadgets.append(gadget)
             # C++ allows nested type declaration
-            stack.extend(
-                [
-                    inner
-                    for inner in node["inner"]
-                    # CXXRecordDecl contains self in the inner.
-                    if not (
-                        node["kind"] == "CXXRecordDecl"
-                        and inner["kind"] == "CXXRecordDecl"
-                        and inner["name"] == node["name"]
-                    )
-                ]
-            )
+            if "inner" in node:
+                stack.extend(
+                    [
+                        inner
+                        for inner in node["inner"]
+                        # CXXRecordDecl contains self in the inner.
+                        if not (
+                            node["kind"] == "CXXRecordDecl"
+                            and inner["kind"] == "CXXRecordDecl"
+                            and inner["name"] == node["name"]
+                        )
+                    ]
+                )
         return gadgets
 
     def parse_api_gadget(self, source: str) -> APIGadget:

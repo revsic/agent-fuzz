@@ -12,6 +12,8 @@ class APIGadget:
 @dataclass
 class TypeGadget:
     name: str
+    tag: str
+    qualified: str | None
     _meta: dict
 
 
