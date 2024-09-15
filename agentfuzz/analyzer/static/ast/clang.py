@@ -19,14 +19,47 @@ class ClangASTParser(ASTParser):
         # for dumping cache
         self._ast_caches = {}
 
-    def parse_type_gadget(self, soruce: str) -> TypeGadget:
+    def parse_type_gadget(self, source: str) -> TypeGadget:
         """Parse the declared type infos from the header file.
         Args:
             source: a path to the source code file.
         Returns:
             list of type gadgets.
         """
-        pass
+        assert os.path.exists(source), f"FILE DOES NOT EXIST, {source}"
+        # parse tree, cache supports
+        top_node = self._parse_to_ast(source)
+        assert "error" not in top_node, top_node
+        # traversal
+        gadgets, stack = [], [*top_node["inner"]]
+        while stack:
+            node = stack.pop()
+            # TypeAliasDecl: using A = B;
+            # TypedefDecl: typedef B A;
+            # CXXRecordDecl: tagged by class, struct
+            if node["kind"] not in ["TypeAliasDecl", "TypedefDecl", "CXXRecordDecl"]:
+                stack.extend(node.get("inner", []))
+                continue
+
+            gadget = TypeGadget(
+                name=node["name"],
+                _meta={"node": node},
+            )
+            gadgets.append(gadget)
+            # C++ allows nested type declaration
+            stack.extend(
+                [
+                    inner
+                    for inner in node["inner"]
+                    # CXXRecordDecl contains self in the inner.
+                    if not (
+                        node["kind"] == "CXXRecordDecl"
+                        and inner["kind"] == "CXXRecordDecl"
+                        and inner["name"] == node["name"]
+                    )
+                ]
+            )
+        return gadgets
 
     def parse_api_gadget(self, source: str) -> APIGadget:
         """Parse the API infos from the header file.
@@ -40,7 +73,7 @@ class ClangASTParser(ASTParser):
         top_node = self._parse_to_ast(source)
         assert "error" not in top_node, top_node
         # traversal
-        gadgets, stack = [], [top_node]
+        gadgets, stack = [], [*top_node["inner"]]
         while stack:
             node = stack.pop()
             if node["kind"] not in ["FunctionDecl"]:
@@ -62,9 +95,7 @@ class ClangASTParser(ASTParser):
                 name=node["name"],
                 return_type=return_t,
                 arguments=arguments,
-                _meta={
-                    "node": node,
-                },
+                _meta={"node": node},
             )
             gadgets.append(gadget)
         return gadgets

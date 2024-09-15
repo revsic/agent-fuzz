@@ -11,7 +11,8 @@ class APIGadget:
 
 @dataclass
 class TypeGadget:
-    pass
+    name: str
+    _meta: dict
 
 
 class ASTParser:
