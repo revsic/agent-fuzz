@@ -6,7 +6,9 @@ import yaml
 
 @dataclass
 class Config:
-    name: str = "default"
+    name: str
+    srcdir: str
+    postfix: str
 
     @classmethod
     def load_from_yaml(cls, path: str):
