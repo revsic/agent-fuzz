@@ -1,5 +1,6 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from typing import TextIO
 
 import yaml
 
@@ -26,6 +27,13 @@ class Config:
         with open(path) as f:
             loaded = yaml.safe_load(f)
         return cls(**loaded)
+
+    def dump(self, f: TextIO):
+        """Dump the project to the yaml file.
+        Args:
+            f: writing stream.
+        """
+        yaml.safe_dump(asdict(self), f)
 
     @classmethod
     def load_from_json(cls, path: str):
