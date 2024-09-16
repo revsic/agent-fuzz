@@ -1,11 +1,11 @@
 import os
 
-from agentfuzz.config import Config
 from agentfuzz.analyzer.static import APIGadget, ASTParser, GNUGlobal, TypeGadget
+from agentfuzz.config import Config
 
 
 class Project:
-    """Project information for harness generation."""
+    """Harness generation project"""
 
     def __init__(
         self,
@@ -13,7 +13,7 @@ class Project:
         config: Config,
         astparser: ASTParser,
     ):
-        """Initialize the project information.
+        """Initialize the project.
         Args:
             projdir: a path to the project directory for writing some logs and intermediate results.
             config: the configurations of the harness generation pipeline.
@@ -25,6 +25,13 @@ class Project:
         self.tags = GNUGlobal.gtags(
             self.config.srcdir, tagdir=os.path.join(self.projdir, "tags")
         )
+
+    def run(self):
+        """Run the harness generation loop."""
+        # lazy import for preventing cyclic imports
+        from agentfuzz.generator import HarnessGenerator
+
+        HarnessGenerator(self).run()
 
     def listup_files(self) -> list[str]:
         """Listup the files which containing the API Gadgets.

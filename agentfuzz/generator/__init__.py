@@ -7,7 +7,7 @@ class HarnessGenerator:
     def __init__(self, project: Project):
         """Initialize the harness generator.
         Args:
-            project: a project information/configuration.
+            project: a harness generation project.
         """
         self.project = project
 

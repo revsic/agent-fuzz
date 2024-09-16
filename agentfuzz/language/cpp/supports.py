@@ -14,7 +14,7 @@ class CppConfig(Config):
 
 
 class CppProject(Project):
-    """Project information for C/C++."""
+    """Harness generation project for C/C++."""
 
     def __init__(self, projdir: str, config: CppConfig):
         """Initialize the C/C++ project.
@@ -25,3 +25,24 @@ class CppProject(Project):
         super().__init__(
             projdir, config, ClangASTParser(include_path=config.include_dir)
         )
+
+    @classmethod
+    def template(
+        cls,
+        projdir: str,
+        srcdir: str,
+        include_dir: str | list[str] | None = None,
+    ):
+        """Project template.
+        Args:
+            projdir: a path to the project directory.
+            srcdir: a path to the source code directory.
+            include_dir: a path to the directory for preprocessing `#include` macro.
+        """
+        config = CppConfig(
+            projdir,
+            srcdir=srcdir,
+            postfix=(".h", ".hpp", ".hxx"),
+            include_dir=include_dir or srcdir,
+        )
+        return cls(projdir, config)
