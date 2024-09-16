@@ -10,7 +10,9 @@ from agentfuzz.analyzer.static.ast import APIGadget, ASTParser, TypeGadget
 class ClangASTParser(ASTParser):
     """Clang AST-based static analysis supports."""
 
-    def __init__(self, include_path: str | list[str] | None = None):
+    def __init__(
+        self, include_path: str | list[str] | None = None, _max_cache: int = 500
+    ):
         """Preare the clang ast parser.
         Args:
             include_path: paths to the directories for `#incldue` preprocessor.
@@ -18,6 +20,7 @@ class ClangASTParser(ASTParser):
         self.include_path = include_path
         # for dumping cache
         self._ast_caches = {}
+        self._max_cache = _max_cache
 
     def parse_type_gadget(self, source: str) -> TypeGadget:
         """Parse the declared type infos from the header file.
@@ -117,6 +120,10 @@ class ClangASTParser(ASTParser):
             return self._ast_caches[_key]
         # dump the ast
         dumped = self._run_ast_dump(source, self.include_path)
+        if len(self._ast_caches) > self._max_cache:
+            # FIFO
+            self._ast_caches = dict(list(self._ast_caches.items())[1:])
+        # update
         self._ast_caches[_key] = dumped
         return dumped
 
