@@ -6,9 +6,14 @@ import yaml
 
 @dataclass
 class Config:
+    """Configurations for harness generation"""
+
+    # name of the project
     name: str
+    # a path to the source code directory
     srcdir: str
-    postfix: str
+    # postfix for retrieve the source files form the source code directory.
+    postfix: str | tuple
 
     @classmethod
     def load_from_yaml(cls, path: str):
