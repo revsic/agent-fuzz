@@ -26,11 +26,18 @@ Static analysis
 - [x] Collect API function/type gadgets
 - [ ] Infer input constraints 
 
+Dynamic analysis
+
+- [ ] Compile the harness
+- [ ] Run the fuzzer
+- [ ] Compute the branch coverage
+
 Agentic Fuzz-driver generation
 
 - [ ] Initial generation pipeline
 - [ ] Energy/Density measure supports (ref:PromptFuzz)
-- [ ] Non-agentic fuzz-driver generation
+- [ ] API scheduler
+- [ ] Fuzzer-run / harness-generation scheduler
 - [ ] Agentic fuzz-driver generation
 
 ### Coverage feedback to fuzz-driver
