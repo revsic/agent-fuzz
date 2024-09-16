@@ -17,6 +17,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "litellm>=1.46.0",
+    "numpydoc>=1.8.0",
     "pyyaml>=6.0.1",
 ]
 
