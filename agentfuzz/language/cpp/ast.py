@@ -4,7 +4,7 @@ import re
 import subprocess
 import traceback
 
-from agentfuzz.analyzer.static.ast.base import APIGadget, ASTParser, TypeGadget
+from agentfuzz.analyzer.static.ast import APIGadget, ASTParser, TypeGadget
 
 
 class ClangASTParser(ASTParser):
