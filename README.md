@@ -28,9 +28,14 @@ Static analysis
 
 Dynamic analysis
 
-- [ ] Compile the harness
+- [x] Compile the harness
 - [ ] Run the fuzzer
 - [ ] Compute the branch coverage
+
+FP Elimination
+- [ ] Runtime fuzzing validation
+- [ ] Runtime coverage validation
+- [ ] Corpuse reusage
 
 Agentic Fuzz-driver generation
 
