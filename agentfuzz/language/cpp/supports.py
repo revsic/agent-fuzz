@@ -9,8 +9,14 @@ from agentfuzz.project import Project
 class CppConfig(Config):
     """Configurations for C/C++ project."""
 
+    # a path to the library
+    libpath: str
+    # a path to the corpus directory
+    corpus_dir: str
     # a path to the directory for preprocessing `#include` macro.
     include_dir: str | list[str] | None = None
+    # a path to the dictionary file
+    fuzzdict: str | None = None
 
 
 class CppProject(Project):
@@ -27,11 +33,23 @@ class CppProject(Project):
         )
 
     @classmethod
+    def from_yaml(cls, projdir: str, config: str):
+        """Construct project with the predefined configuration file.
+        Args:
+            projdir: a path to the project directory.
+            config: a path to the configuration file, yaml format.
+        """
+        return cls(projdir, CppConfig.load_from_yaml(config))
+
+    @classmethod
     def template(
         cls,
         projdir: str,
         srcdir: str,
+        libpath: str,
+        corpus_dir: str,
         include_dir: str | list[str] | None = None,
+        fuzzdict: str | None = None,
     ):
         """Project template.
         Args:
@@ -43,6 +61,9 @@ class CppProject(Project):
             projdir,
             srcdir=srcdir,
             postfix=(".h", ".hpp", ".hxx"),
+            libpath=libpath,
+            corpus_dir=corpus_dir,
             include_dir=include_dir or srcdir,
+            fuzzdict=fuzzdict,
         )
         return cls(projdir, config)

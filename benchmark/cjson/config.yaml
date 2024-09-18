@@ -1,0 +1,10 @@
+- name: cjson
+- srcdir: ./cjson/workspace/src/cJSON
+- postfix:
+  - .h
+  - .hpp
+  - .hxx
+- libpath: ./cjson/workspace/lib/libcjson.a
+- corpus_dir: ./cjson/workspace/corpus
+- include_dir: ./cjson/workspace/include
+- fuzzdict: ./cjson/workspace/dict/json.dict
