@@ -30,6 +30,11 @@ git checkout v1.7.18
 BUILDIR=$WORKDIR/build
 mkdir -p $BUILDIR && pushd $BUILDIR
 # build
+FLAGS="-g -fprofile-instr-generate -fcoverage-mapping -fsanitize=fuzzer-no-link -fno-sanitize=undefined,address"
+export CC=clang
+export CXX=clang++
+export CFLAGS="$CFLAGS $FLAGS"
+export CXXFLAGS="$CXXFLAGS $FLAGS"
 cmake -DBUILD_SHARED_AND_STATIC_LIBS=ON -DENABLE_CJSON_TEST=OFF $SRCDIR/cJSON
 make -j 4
 
