@@ -1,8 +1,18 @@
 class Fuzzer:
     """Executable fuzzer object."""
 
-    def run(self):
-        """Run the fuzzer with compiled harness."""
+    def run(
+        self,
+        corpus_dir: str | None = None,
+        fuzzdict: str | None = None,
+        timeout: float = 300,
+    ):
+        """Run the compiled harness with given corpus directory and the fuzzer dictionary.
+        Args:
+            corpus_dir: a path to the directory containing fuzzing inputs (corpus).
+            fuzzdict: a path to the fuzzing dictionary file.
+            timeout: fuzzer timeout.
+        """
         raise NotImplementedError("Fuzzer.run is not implemented.")
 
     def coverage(self):
