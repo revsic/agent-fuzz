@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
+from agentfuzz.analyzer import Factory
 from agentfuzz.config import Config
+from agentfuzz.harness import HarnessGenerator
 from agentfuzz.language.cpp.ast import ClangASTParser
-from agentfuzz.project import Project
 
 
 @dataclass
@@ -10,27 +11,27 @@ class CppConfig(Config):
     """Configurations for C/C++ project."""
 
     # a path to the library
-    libpath: str
-    # a path to the corpus directory
-    corpus_dir: str
+    libpath: str | None = None
     # a path to the directory for preprocessing `#include` macro.
     include_dir: str | list[str] | None = None
-    # a path to the dictionary file
-    fuzzdict: str | None = None
 
 
-class CppProject(Project):
+class CppProject:
     """Harness generation project for C/C++."""
 
-    def __init__(self, projdir: str, config: CppConfig):
+    def __init__(self, workdir: str, config: CppConfig):
         """Initialize the C/C++ project.
         Args:
-            projdir: a path to the project directory.
+            workdir: a path to the workspace directory.
             config: a C/C++ project configurations.
         """
-        super().__init__(
-            projdir, config, ClangASTParser(include_path=config.include_dir)
+        self.factory = Factory(
+            workdir, config, ClangASTParser(include_path=config.include_dir)
         )
+
+    def run(self):
+        """Run the AgentFuzz pipeline."""
+        HarnessGenerator(self.factory).run()
 
     @classmethod
     def from_yaml(cls, projdir: str, config: str):
@@ -44,21 +45,20 @@ class CppProject(Project):
     @classmethod
     def template(
         cls,
-        projdir: str,
+        workdir: str,
         srcdir: str,
-        libpath: str,
-        corpus_dir: str,
+        libpath: str | None = None,
         include_dir: str | list[str] | None = None,
+        corpus_dir: str | None = None,
         fuzzdict: str | None = None,
     ):
         """Project template.
         Args:
-            projdir: a path to the project directory.
+            workdir: a path to the workspace directory.
             srcdir: a path to the source code directory.
-            include_dir: a path to the directory for preprocessing `#include` macro.
         """
         config = CppConfig(
-            projdir,
+            workdir,
             srcdir=srcdir,
             postfix=(".h", ".hpp", ".hxx"),
             libpath=libpath,
@@ -66,4 +66,4 @@ class CppProject(Project):
             include_dir=include_dir or srcdir,
             fuzzdict=fuzzdict,
         )
-        return cls(projdir, config)
+        return cls(workdir, config)

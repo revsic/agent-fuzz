@@ -14,7 +14,11 @@ class Config:
     # a path to the source code directory
     srcdir: str
     # postfix for retrieve the source files form the source code directory.
-    postfix: str | tuple
+    postfix: str | tuple | None = None
+    # a path to the corpus directory
+    corpus_dir: str | None = None
+    # a path to the dictionay file
+    fuzzdict: str | None = None
 
     @classmethod
     def load_from_yaml(cls, path: str):
