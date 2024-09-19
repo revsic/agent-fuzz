@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import litellm
 
-from agentfuzz.generator.agent.logger import Logger
+from agentfuzz.harness.agent.logger import Logger
 
 
 class Agent:

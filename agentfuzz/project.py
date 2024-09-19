@@ -29,7 +29,7 @@ class Project:
     def run(self):
         """Run the harness generation loop."""
         # lazy import for preventing cyclic imports
-        from agentfuzz.generator import HarnessGenerator
+        from agentfuzz.harness.generator import HarnessGenerator
 
         HarnessGenerator(self).run()
 
