@@ -1,3 +1,4 @@
+import os
 import subprocess
 import tempfile
 from time import time
@@ -41,7 +42,8 @@ class LibFuzzer(Fuzzer):
         self,
         corpus_dir: str | None = None,
         fuzzdict: str | None = None,
-        timeout: float = 300.0,
+        _timeout: float = 300.0,
+        _profile: str = "default.profraw",
     ):
         """Run the compiled harness with given corpus directory and the fuzzer dictionary.
         Args:
@@ -64,11 +66,12 @@ class LibFuzzer(Fuzzer):
             cmd,
             stderr=subprocess.STDOUT,
             stdout=subprocess.PIPE,
+            env={**os.environ, "LLVM_PROFILE_FILE": _profile},
         )
 
         start = time()
         while proc.poll() is None:
-            if time() - start > timeout:
+            if time() - start > _timeout:
                 break
             with open("log.txt", "ab") as f:
                 f.write(proc.stdout.readline())
