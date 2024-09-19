@@ -50,7 +50,7 @@ class LibFuzzer(Fuzzer):
             timeout: a time limit.
         """
         # minimize the corpus first
-        if self.minimize_corpus:
+        if self.minimize_corpus and corpus_dir is not None:
             if minimized := self._minimize_corpus(corpus_dir):
                 corpus_dir = minimized
         # run the fuzzer
@@ -71,7 +71,7 @@ class LibFuzzer(Fuzzer):
             if time() - start > timeout:
                 break
             with open("log.txt", "ab") as f:
-                f.write(proc.stdout.read())
+                f.write(proc.stdout.readline())
         retn = proc.poll()
         # kill if it is not finished
         if retn is None:
