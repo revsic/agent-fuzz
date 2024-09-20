@@ -24,6 +24,7 @@ class GNUGlobal:
             tagdir: a path to a tag database directory, use temporal direectory if it is not given.
         """
         tagdir = tagdir or tempfile.mkdtemp()
+        os.makedirs(tagdir, exist_ok=True)
         results = subprocess.run(
             [
                 "gtags",
