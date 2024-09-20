@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import tempfile
@@ -17,6 +18,9 @@ class LibFuzzer(Fuzzer):
         """
         self.path = path
         self.minimize_corpus = minimize_corpus
+        # for supporting parallel run
+        self._proc: subprocess.Popen | None = None
+        self._timeout: float | None = None
 
     def _minimize_corpus(
         self, corpus_dir: str, outdir: str | None = None
@@ -42,17 +46,30 @@ class LibFuzzer(Fuzzer):
         self,
         corpus_dir: str | None = None,
         fuzzdict: str | None = None,
-        _timeout: float = 300.0,
-        _profile: str = "default.profraw",
-    ):
+        wait_until_done: bool = False,
+        timeout: float | None = 300.0,
+        _profile: str | None = None,
+        _logfile: str | None = None,
+    ) -> int | Exception | None:
         """Run the compiled harness with given corpus directory and the fuzzer dictionary.
         Args:
             corpus_dir: a path to the directory containing fuzzing inputs (corpus).
             fuzzdict: a path to the fuzzing dictionary file.
-            timeout: a time limit.
+            wait_until_done: wait for the fuzzer done.
+            timeout: the maximum running time in seconds.
+            _profile: a path to the coverage profiling file, use `{self.path}.profraw` if it is not provided.
+            _logfile: a path to the fuzzing log file, use `{self.path}.log` if it is not provided.
+        Returns:
+            int: return code of the fuzzer process.
+            None: if fuzzer process is running now.
+            Exception: if the fuzzer process deos not exist or timeout occured.
         """
+        # if already run
+        if self._proc is not None:
+            return self.poll()
         # minimize the corpus first
         if self.minimize_corpus and corpus_dir is not None:
+            # if successfully minimized
             if minimized := self._minimize_corpus(corpus_dir):
                 corpus_dir = minimized
         # run the fuzzer
@@ -62,27 +79,96 @@ class LibFuzzer(Fuzzer):
         if fuzzdict is not None:
             cmd.extend(["-dict", fuzzdict])
 
-        proc = subprocess.Popen(
+        self._proc = subprocess.Popen(
             cmd,
             stderr=subprocess.STDOUT,
-            stdout=subprocess.PIPE,
-            env={**os.environ, "LLVM_PROFILE_FILE": _profile},
+            stdout=open(_logfile or f"{self.path}.log", "wb"),
+            env={**os.environ, "LLVM_PROFILE_FILE": _profile or f"{self.path}.profraw"},
         )
-
-        start = time()
-        while proc.poll() is None:
-            if time() - start > _timeout:
-                break
-            with open("log.txt", "ab") as f:
-                f.write(proc.stdout.readline())
-        retn = proc.poll()
-        # kill if it is not finished
-        if retn is None:
-            proc.kill()
+        self._timeout = time() + timeout
+        if not wait_until_done:
+            return self.poll()
+        # wait until done
+        try:
+            self._proc.wait(timeout)
+        except subprocess.TimeoutExpired:
+            pass
+        # return code
+        retn = self.poll()
+        # hard clear (for preventing process miss-clear)
+        self.clear()
         return retn
 
-    def coverage(self):
-        return super().coverage()
+    def poll(self) -> int | None | Exception:
+        """Poll the return code of the fuzzer process and clear if process done.
+        Returns:
+            int: return code of the fuzzer process.
+            None: if fuzzer process is running now.
+            Exception: if the fuzzer process deos not exist or timeout occured.
+        """
+        if self._proc is None:
+            return RuntimeError("process is not running now")
+        # if the process is running and before timeout
+        if (retn := self._proc.poll()) is None and time() < self._timeout:
+            return None
+        # clear
+        self.clear()
+        # return code if exists. otherwise, return timeouterror
+        return retn or TimeoutError(f"fuzzer process {self.path} timeout")
+
+    def clear(self):
+        """Clear the fuzzing process (kill the process if it is running)."""
+        if self._proc is None:
+            return
+        if self._proc.poll() is None:
+            self._proc.kill()
+        if self._proc.stdout is not None:
+            self._proc.stdout.close()
+        self._proc, self._timeout = None, None
+
+    def coverage(self, libpath: str, _profile: str | None = None):
+        """Collect the coverage w.r.t. the given library.
+        Args:
+            libpath: a path to the target library.
+            _profile: a path to the coverage profiling file, assume it as f"{self.path}.profraw" if it is not provded.
+        """
+        # assign default value
+        _profile = _profile or f"{self.path}.profraw"
+        _merged = _profile.replace(".profraw", ".profdata")
+        # merge the raw profile
+        try:
+            run = subprocess.run(
+                ["llvm-profdata", "merge", "-sparse", _profile, "-o", _merged]
+            )
+            run.check_returncode()
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"failed to merge the raw profile data `{_profile}` to `{_merged}`"
+            ) from e
+        # return the coverage
+        cov: dict
+        try:
+            run = subprocess.run(
+                [
+                    "llvm-cov",
+                    "export",
+                    libpath,
+                    f"--instr-profile={_merged}",
+                ],
+                capture_output=True,
+            )
+            run.check_returncode()
+            cov = json.loads(run.stdout.decode("utf-8"))
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"failed to extract the coverage from the profile data `{_merged}`"
+            ) from e
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                f"failed to load the json-format coverage from the profile data `{_merged}`"
+            ) from e
+
+        return cov
 
 
 _CXXFLAGS = [
