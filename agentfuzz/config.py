@@ -9,8 +9,6 @@ import yaml
 class Config:
     """Configurations for harness generation"""
 
-    # name of the project
-    name: str
     # a path to the source code directory
     srcdir: str
     # postfix for retrieve the source files form the source code directory.

@@ -8,16 +8,24 @@ from agentfuzz.config import Config
 class Factory:
     """Analyze the project and retrieve the knowledges."""
 
-    def __init__(self, workdir: str, config: Config, parser: ASTParser):
+    def __init__(
+        self,
+        workdir: str,
+        config: Config,
+        parser: ASTParser,
+        compiler: Compiler,
+    ):
         """Initialize the harness generator.
         Args:
             workdir: a path to the workspace directory for writing some logs and intermediate results.
             config: the configurations of the harness generation pipeline.
-            astparser: an abstract syntax tree parser.
+            parser: an abstract syntax tree parser.
+            compiler: a compiler for generating an executable object from a harness code.
         """
         self.workdir = workdir
         self.config = config
         self.parser = parser
+        self.compiler = compiler
         self.tags = GNUGlobal.gtags(
             self.config.srcdir, tagdir=os.path.join(self.workdir, "tags")
         )
