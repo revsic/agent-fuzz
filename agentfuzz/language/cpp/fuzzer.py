@@ -1,10 +1,10 @@
-import json
 import os
 import subprocess
 import tempfile
 from time import time
 
 from agentfuzz.analyzer.dynamic import Compiler, Fuzzer
+from agentfuzz.language.cpp.lcov import parse_lcov
 
 
 class LibFuzzer(Fuzzer):
@@ -126,7 +126,7 @@ class LibFuzzer(Fuzzer):
             self._proc.stdout.close()
         self._proc, self._timeout = None, None
 
-    def coverage(self, libpath: str, _profile: str | None = None):
+    def coverage(self, libpath: str, _profile: str | None = None) -> dict:
         """Collect the coverage w.r.t. the given library.
         Args:
             libpath: a path to the target library.
@@ -153,19 +153,20 @@ class LibFuzzer(Fuzzer):
                     "llvm-cov",
                     "export",
                     libpath,
+                    "-format=lcov",
                     f"--instr-profile={_merged}",
                 ],
                 capture_output=True,
             )
             run.check_returncode()
-            cov = json.loads(run.stdout.decode("utf-8"))
+            cov = parse_lcov(run.stdout.decode("utf-8"))
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
                 f"failed to extract the coverage from the profile data `{_merged}`"
             ) from e
-        except json.JSONDecodeError as e:
+        except Exception as e:
             raise RuntimeError(
-                f"failed to load the json-format coverage from the profile data `{_merged}`"
+                f"failed to parse the lcov-format coverate data from profile `{_merged}`"
             ) from e
 
         return cov
