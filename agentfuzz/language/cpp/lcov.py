@@ -8,7 +8,7 @@ def parse_lcov(lcov: str) -> dict[str, dict]:
     Args:
         lcov: file content of the lcov-format profiling coverage.
     Returns:
-
+        structured data about the coverage about the lines, branches, functions and files.
     """
     # split into file-level units
     files = [

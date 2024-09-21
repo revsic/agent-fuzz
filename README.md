@@ -18,6 +18,12 @@ sudo apt-get install -y global universal-ctags
 
 ### OSS-Fuzz Build Script supports
 
+Benchmark
+
+- [x] cJSON
+- [ ] libpcap
+- [ ] libxml2
+
 ### Fuzz-driver generation loop
 
 Static analysis
@@ -29,8 +35,8 @@ Static analysis
 Dynamic analysis
 
 - [x] Compile the harness
-- [ ] Run the fuzzer
-- [ ] Compute the branch coverage
+- [x] Run the fuzzer
+- [x] Compute the branch coverage
 
 FP Elimination
 - [ ] Runtime fuzzing validation

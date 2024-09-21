@@ -2,15 +2,15 @@
 
 PROJECT="cjson"
 # | workspace
-#   | src
+#   | src (required)
 #     | cJSON (repo)
 #   | build
-#   | lib
+#   | lib (required)
 #     | libcjson.a
-#   | include
+#   | include (optional)
 #     | cJSON.h
-#   | corpus
-#   | dict
+#   | corpus (optional)
+#   | dict (optional)
 #     | json.dict
 
 WORKDIR=./$PROJECT/workspace

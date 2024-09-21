@@ -6,7 +6,11 @@ from agentfuzz.config import Config
 
 
 class Factory:
-    """Analyze the project and retrieve the knowledges."""
+    """Analyze the project and retrieve the knowledges for LLM.
+
+    The methods are all supposed to be the tools for a LLM function calling API.
+    Consider that all the documentation will directly be fed to the LLM as a description of the tools.
+    """
 
     def __init__(
         self,
@@ -31,8 +35,8 @@ class Factory:
         )
 
     def listup_files(self) -> list[str]:
-        """Listup the files which containing the API Gadgets.
-        Maybe header files of the C/C++ project, all python files of the python project, etc.
+        """(Non-LLM API) Listup the files which containing the API Gadgets.
+        Maybe header files from the C/C++ project, or all `.py` files from the python project.
 
         Returns:
             list of paths to the source files.
@@ -45,18 +49,18 @@ class Factory:
         ]
 
     def listup_apis(self) -> list[APIGadget]:
-        """Listup the API gadgets.
+        """(Non-LLM API) Listup the APIs.
         Returns:
-            list of api gadgets from the projects, which will be targeted by generated harness.
+            list of the APIs from the project, which will be used to generate harness.
         """
         return [
             self.astparser.parse_api_gadget(source) for source in self.listup_files()
         ]
 
     def listup_types(self) -> list[TypeGadget]:
-        """Listup the type gadgets.
+        """(None-LLM API) Listup the user-defined types.
         Returns:
-            list of type gadgets from the projects.
+            list of types from the projects.
         """
         return [
             self.astparser.parse_type_gadget(source) for source in self.listup_types()
