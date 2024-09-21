@@ -33,7 +33,7 @@ class ASTParser:
         Args:
             source: a path to the source code file.
         Returns:
-            list of type gadgets.
+            a list of type gadgets.
         """
         raise NotImplementedError("ASTParser.parse_type_gadget is not implemented")
 
@@ -42,6 +42,23 @@ class ASTParser:
         Args:
             source: a path to the source code file.
         Returns:
-            list of API gadgets.
+            a list of API gadgets.
         """
         raise NotImplementedError("ASTParser.parse_api_gadget is not implemented")
+
+    def retrieve_type(
+        self, api: APIGadget, types: list[TypeGadget]
+    ) -> list[TypeGadget]:
+        """Retrieve relevant type gadgets about the given api.
+        Args:
+            api: the target api gadget.
+            types: a list of type gadget candidates.
+        Returns:
+            a list of relevant type gadgets.
+        """
+        return [
+            gadget
+            for gadget in types
+            if api.return_type == gadget.name
+            or any(arg_t == gadget.name for _, arg_t in api.arguments)
+        ]
