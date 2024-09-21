@@ -62,9 +62,10 @@ class Agent:
                 seed=_seed,
             )
             (choice,) = response.choices
+            self.logger.log(response.model_dump())
             return self.Response(
                 response=choice.message.content,
-                messages=messages + [choice.model_dump()],
+                messages=messages + [choice.message.model_dump()],
                 turn=None,
             )
 
@@ -93,11 +94,13 @@ class Agent:
                 seed=_seed,
             )
             (choice,) = response.choices
+            self.logger.log(response.model_dump())
+            messages.append(choice.message.model_dump())
             # if agent does not call the functions/tools
             if choice.message.tool_calls is None:
                 return self.Response(
                     response=choice.message.content,
-                    messages=messages + [choice.model_dump()],
+                    messages=messages,
                     turn=turn,
                 )
             # for supporting parallel tool calls
@@ -135,7 +138,7 @@ class Agent:
                     )
                     continue
                 # append the message
-                _append(json.dumps(retn))
+                _append(json.dumps(retn, ensure_ascii=False))
         # if agent does not respond the answer
         msg = f"iteration exceeds the given maximum number of the turns of conversation, {max_turns}"
         self.logger.log({"error": msg})
