@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT="cjson"
+WORKDIR=./workspace
 # | workspace
 #   | src (required)
 #     | cJSON (repo)
@@ -13,7 +13,6 @@ PROJECT="cjson"
 #   | dict (optional)
 #     | json.dict
 
-WORKDIR=./$PROJECT/workspace
 mkdir -p $WORKDIR
 # to absolute path
 WORKDIR=`realpath $WORKDIR`
