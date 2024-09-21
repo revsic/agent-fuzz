@@ -62,4 +62,4 @@ class CppProject:
             projdir: a path to the project directory.
             config: a path to the configuration file, yaml format.
         """
-        return cls(projdir, CppConfig.load_from_yaml(config))
+        return cls(projdir, cls.Config.load_from_yaml(config))
