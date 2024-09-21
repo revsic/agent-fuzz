@@ -21,6 +21,10 @@ class Config:
     fuzzdict: str | None = None
     # combination length, tuple of minimal and maximal length.
     comblen: tuple[int, int] = (5, 10)
+    # maximum api lengths
+    max_apis: int = 200
+    # the name of the llm
+    llm: str = "gpt-4o-mini-2024-07-18"
 
     @classmethod
     def load_from_yaml(cls, path: str):
