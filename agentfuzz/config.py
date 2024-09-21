@@ -17,6 +17,8 @@ class Config:
     corpus_dir: str | None = None
     # a path to the dictionay file
     fuzzdict: str | None = None
+    # combination length, tuple of minimal and maximal length.
+    comblen: tuple[int, int] = (5, 10)
 
     @classmethod
     def load_from_yaml(cls, path: str):
