@@ -1,3 +1,6 @@
+from agentfuzz.analyzer.dynamic.coverage import Coverage
+
+
 class Fuzzer:
     """Executable fuzzer object."""
 
@@ -30,7 +33,7 @@ class Fuzzer:
         """
         raise NotImplementedError("Fuzzer.poll is not implemented.")
 
-    def coverage(self):
+    def coverage(self) -> Coverage:
         """Collect the branch coverage of the last fuzzer run."""
         raise NotImplementedError("Fuzzer.coverage is not implemented.")
 

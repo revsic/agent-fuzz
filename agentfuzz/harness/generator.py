@@ -1,7 +1,7 @@
 import os
 import random
 
-from agentfuzz.analyzer import Factory, Fuzzer
+from agentfuzz.analyzer import Coverage, Factory
 from agentfuzz.harness.agent import Agent
 from agentfuzz.harness.mutation.api import APICombMutator
 from agentfuzz.harness.prompt.baseline import prompt_baseline
@@ -110,6 +110,6 @@ class HarnessGenerator:
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
 
-    def _validate(self, path: str, retn: int | None | Exception, cov: any) -> bool:
+    def _validate(self, path: str, retn: int | None | Exception, cov: Coverage) -> bool:
         # TODO: validate the harness
         return True

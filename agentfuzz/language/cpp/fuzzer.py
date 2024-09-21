@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from time import time
 
-from agentfuzz.analyzer.dynamic import Compiler, Fuzzer
+from agentfuzz.analyzer import Compiler, Coverage, Fuzzer
 from agentfuzz.language.cpp.lcov import parse_lcov
 
 
@@ -126,7 +126,7 @@ class LibFuzzer(Fuzzer):
             self._proc.stdout.close()
         self._proc, self._timeout = None, None
 
-    def coverage(self, libpath: str, _profile: str | None = None) -> dict:
+    def coverage(self, libpath: str, _profile: str | None = None) -> Coverage:
         """Collect the coverage w.r.t. the given library.
         Args:
             libpath: a path to the target library.
@@ -169,7 +169,7 @@ class LibFuzzer(Fuzzer):
                 f"failed to parse the lcov-format coverate data from profile `{_merged}`"
             ) from e
 
-        return cov
+        return Coverage(cov)
 
 
 _CXXFLAGS = [

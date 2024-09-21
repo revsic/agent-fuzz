@@ -1,6 +1,6 @@
 import random
 
-from agentfuzz.analyzer import APIGadget
+from agentfuzz.analyzer import APIGadget, Coverage
 
 
 class APICombMutator:
@@ -19,6 +19,6 @@ class APICombMutator:
         random.shuffle(temp)
         return temp[:comblen]
 
-    def feedback(self, cov):
+    def feedback(self, cov: Coverage):
         # TODO: feedback the api mutator with coverage
         pass

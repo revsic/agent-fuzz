@@ -1,7 +1,7 @@
 import os
 
 from agentfuzz.analyzer.static import APIGadget, ASTParser, GNUGlobal, TypeGadget
-from agentfuzz.analyzer.dynamic import Compiler, Fuzzer
+from agentfuzz.analyzer.dynamic import Compiler, Coverage, Fuzzer
 from agentfuzz.config import Config
 
 
