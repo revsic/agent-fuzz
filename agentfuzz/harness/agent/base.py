@@ -41,6 +41,18 @@ class Agent:
             temperature: distribution sharpening factor.
             max_turns: the maximum number of the turns between human and LLM.
         """
+        self.logger.log(
+            {
+                "request": {
+                    "model": model,
+                    "messages": messages,
+                    "tools": list(tools),
+                    "temperature": temperature,
+                    "max_turns": max_turns,
+                    "_seed": _seed,
+                }
+            }
+        )
         # single conversation if tool does not exist
         if tools is None:
             response = litellm.completion(
@@ -58,11 +70,13 @@ class Agent:
 
         # check whether the given model supports function calling API.
         if not litellm.supports_function_calling(model=model):
+            msg = f"the given model `{model}` does not support function calling by litellm"
+            self.logger.log({"error": msg})
             return self.Response(
                 response=None,
                 messages=messages,
                 turn=None,
-                error=f"the given model `{model}` does not support function calling by litellm",
+                error=msg,
             )
         # convert into json schema
         converted = {
@@ -123,9 +137,11 @@ class Agent:
                 # append the message
                 _append(json.dumps(retn))
         # if agent does not respond the answer
+        msg = f"iteration exceeds the given maximum number of the turns of conversation, {max_turns}"
+        self.logger.log({"error": msg})
         return self.Response(
             None,
             messages=messages,
             turn=max_turns,
-            error=f"iteration exceeds the given maximum number of the turns of conversation, {max_turns}",
+            error=msg,
         )
