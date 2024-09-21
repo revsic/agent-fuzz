@@ -46,7 +46,7 @@ class Agent:
                 "request": {
                     "model": model,
                     "messages": messages,
-                    "tools": list(tools),
+                    "tools": list(tools) if isinstance(tools, dict) else tools,
                     "temperature": temperature,
                     "max_turns": max_turns,
                     "_seed": _seed,
