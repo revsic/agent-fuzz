@@ -22,7 +22,19 @@ class CStyleAPIGadget(APIGadget):
 class CStyleTypeGadget(TypeGadget):
     def signature(self) -> str:
         """Render the type gadget into C/C++ style declaration."""
-        return super().signature()
+        match self.tag:
+            case "alias":
+                # using clause
+                if self._meta["node"]["kind"] == "TypeAliasDecl":
+                    return f"using {self.name} = {self.qualified};"
+                else:
+                    # typedef clause
+                    # assert self._meta["node"]["kind"] == "TypedefDecl"
+                    return f"typedef {self.qualified} {self.name};"
+            case "class":
+                return f"class {self.name};"
+            case "struct":
+                return f"struct {self.name};"
 
 
 class ClangASTParser(ASTParser):
