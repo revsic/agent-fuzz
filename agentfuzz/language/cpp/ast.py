@@ -70,12 +70,21 @@ class ClangASTParser(ASTParser):
             # TypeAliasDecl: using A = B;
             # TypedefDecl: typedef B A;
             # CXXRecordDecl: tagged by class, struct
-            if node["kind"] not in ["TypeAliasDecl", "TypedefDecl", "CXXRecordDecl"]:
+            if node.get("kind") not in [
+                "TypeAliasDecl",
+                "TypedefDecl",
+                "CXXRecordDecl",
+            ]:
                 stack.extend(node.get("inner", []))
+                continue
+            # retrieve the file path (by #include macro)
+            loc = node.get("loc", {})
+            file = loc.get("file") or loc.get("includedFrom", {}).get("file")
+            if file is not None and file != source:
                 continue
 
             gadget = CStyleTypeGadget(
-                name=node["name"],
+                name=node.get("name"),
                 tag=node.get("tagUsed", "alias"),
                 qualified=node.get("type", {}).get("qualType", None),
                 _meta={"node": node},
@@ -112,29 +121,69 @@ class ClangASTParser(ASTParser):
         gadgets, stack = [], [*top_node["inner"]]
         while stack:
             node = stack.pop()
-            if node["kind"] not in ["FunctionDecl"]:
+            if node.get("kind") not in ["FunctionDecl"]:
                 stack.extend(node.get("inner", []))
+                continue
+            # retrieve the file path (by #include macro)
+            loc = node.get("loc", {})
+            file = loc.get("file") or loc.get("includedFrom", {}).get("file")
+            if file is not None and file != source:
                 continue
             # function decl found
             type_ = node["type"]["qualType"]
             # parse type
-            ((return_t, args_t),) = re.findall(r"^(.+?)\s*\((.*?)\)$", type_)
+            _, (_, args_i), *_ = self._parse_parenthesis(type_)
+            ((return_t, args_t),) = re.findall(
+                r"^(.+?)\s*\((.*?)\)$", type_[: args_i + 1]
+            )
+            _post_qualifier = type_[args_i + 1 :]
             # TODO: Mark as template parameter if `TemplateTypeParmDecl` taken
             arguments = [
                 (subnode.get("name", None), subnode["type"]["qualType"])
                 for subnode in node.get("inner", [])
                 if subnode["kind"] == "ParmVarDecl"
             ]
+            # for support variable argument
+            if args_t.endswith("..."):
+                arguments.append((None, "..."))
             # sanity check
             assert args_t == ", ".join(t for _, t in arguments)
             gadget = CStyleAPIGadget(
                 name=node["name"],
                 return_type=return_t,
                 arguments=arguments,
-                _meta={"node": node},
+                _meta={"_post_qualifier": _post_qualifier, "node": node},
             )
             gadgets.append(gadget)
         return gadgets
+
+    def _parse_parenthesis(self, item: str) -> list[tuple[int, int]]:
+        """Parse the parenthesis from the item for argument parser.
+        Args:
+            item: given string.
+        Returns:
+            list of tuples about start and end index of the inner parenthesis.
+        """
+        parsed, stack, idx = [], [0], 0
+        while idx < len(item):
+            s = item[idx:].find("(")
+            e = item[idx:].find(")")
+            if s == -1 and e == -1:
+                break
+            if e == -1 or (s >= 0 and s < e):
+                idx += s + 1
+                stack.append(idx)
+                continue
+            else:
+                idx += e + 1
+                parsed.append((stack.pop(), idx - 1))
+                continue
+
+        if len(stack) > 1:
+            raise ValueError("unpaired parenthesis")
+        if len(stack) > 0:
+            parsed.append((stack.pop(), len(item)))
+        return sorted(parsed, key=lambda x: x[0])
 
     def _parse_to_ast(self, source: str):
         """Parse the source code to extract the abstract syntax tree.
