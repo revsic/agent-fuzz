@@ -7,6 +7,24 @@ import traceback
 from agentfuzz.analyzer.static.ast import APIGadget, ASTParser, TypeGadget
 
 
+class CStyleAPIGadget(APIGadget):
+    def signature(self) -> str:
+        """Render the api gadget into C/C++ style declaration.
+        Returns:
+            `return_type name(list of arguments)`
+        """
+        args = ", ".join(
+            f"{type_} {name or ''}".strip() for name, type_ in self.arguments
+        )
+        return f"{self.return_type} {self.name}({args})"
+
+
+class CStyleTypeGadget(TypeGadget):
+    def signature(self) -> str:
+        """Render the type gadget into C/C++ style declaration."""
+        return super().signature()
+
+
 class ClangASTParser(ASTParser):
     """Clang AST-based static analysis supports."""
 
@@ -22,7 +40,7 @@ class ClangASTParser(ASTParser):
         self._ast_caches = {}
         self._max_cache = _max_cache
 
-    def parse_type_gadget(self, source: str) -> TypeGadget:
+    def parse_type_gadget(self, source: str) -> CStyleTypeGadget:
         """Parse the declared type infos from the header file.
         Args:
             source: a path to the source code file.
@@ -44,7 +62,7 @@ class ClangASTParser(ASTParser):
                 stack.extend(node.get("inner", []))
                 continue
 
-            gadget = TypeGadget(
+            gadget = CStyleTypeGadget(
                 name=node["name"],
                 tag=node.get("tagUsed", "alias"),
                 qualified=node.get("type", {}).get("qualType", None),
@@ -67,7 +85,7 @@ class ClangASTParser(ASTParser):
                 )
         return gadgets
 
-    def parse_api_gadget(self, source: str) -> APIGadget:
+    def parse_api_gadget(self, source: str) -> CStyleAPIGadget:
         """Parse the API infos from the header file.
         Args:
             source: a path to the source code file.
@@ -97,7 +115,7 @@ class ClangASTParser(ASTParser):
             ]
             # sanity check
             assert args_t == ", ".join(t for _, t in arguments)
-            gadget = APIGadget(
+            gadget = CStyleAPIGadget(
                 name=node["name"],
                 return_type=return_t,
                 arguments=arguments,

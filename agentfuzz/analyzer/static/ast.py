@@ -8,6 +8,10 @@ class APIGadget:
     arguments: list[tuple[str | None, str]]
     _meta: dict
 
+    def signature(self) -> str:
+        """Render the gadget into a single declaration."""
+        raise NotImplementedError("APIGadget.signature is not implemented.")
+
 
 @dataclass
 class TypeGadget:
@@ -15,6 +19,10 @@ class TypeGadget:
     tag: str
     qualified: str | None
     _meta: dict
+
+    def signature(self) -> str:
+        """Render the gadget into a single declaration."""
+        raise NotImplementedError("TypeGadget.signature is not implemented.")
 
 
 class ASTParser:
