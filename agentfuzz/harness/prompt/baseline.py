@@ -12,6 +12,8 @@ def parse_md(contents: str, sep: str = "#####", **kwargs) -> list[dict[str, str]
     """
     messages = []
     for turn in contents.split(sep):
+        if turn.strip() == "":
+            continue
         role, *inst = turn.split("\n")
         inst = "\n".join(inst).strip()
         # reduce
@@ -57,7 +59,7 @@ Create a C++ language program step by step by using {{PROJECT}} library APIs and
 
 
 def _render_gadget(
-    self, apis: str | list[APIGadget | TypeGadget | str], sep: str = "\n"
+    apis: str | list[APIGadget | TypeGadget | str], sep: str = "\n"
 ) -> str:
     if isinstance(apis, str):
         return apis
@@ -88,5 +90,6 @@ def prompt_baseline(
         ),  # {{HEADERS}}
         apis=_render_gadget(apis),  # {{APIS}}
         context=_render_gadget(types),  # {{CONTEXT}}
-        combinations=_render_gadget(combinations),  # {{COMBINATIONS}}
+        combinations="    "
+        + _render_gadget(combinations, sep=",\n    "),  # {{COMBINATIONS}}
     )
