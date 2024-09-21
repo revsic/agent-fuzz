@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass, field
 
 from agentfuzz.analyzer import Factory
@@ -28,10 +29,31 @@ class CppConfig(Config):
         assert self.libpath is not None, "libpath should be provided"
 
 
+class CppFactory(Factory):
+    """Override for listup only the valid header files"""
+
+    def listup_files(self) -> list[str]:
+        """Retrieve the files only from the include directory.
+        Returns:
+            a list of the header files.
+        """
+        include_dir = self.config.include_dir or self.config.srcdir
+        if isinstance(include_dir, str):
+            include_dir = [include_dir]
+        return [
+            os.path.join(root, filename)
+            for dir_ in include_dir
+            for root, _, files in os.walk(dir_)
+            for filename in files
+            if filename.endswith(self.config.postfix)
+        ]
+
+
 class CppProject:
     """Harness generation project for C/C++."""
 
     Config = CppConfig
+    Factory = CppFactory
 
     def __init__(self, workdir: str, config: CppConfig):
         """Initialize the C/C++ project.
@@ -39,7 +61,7 @@ class CppProject:
             workdir: a path to the workspace directory.
             config: a C/C++ project configurations.
         """
-        self.factory = Factory(
+        self.factory = self.Factory(
             workdir,
             config,
             ClangASTParser(include_path=config.include_dir),
