@@ -14,6 +14,8 @@ class CppConfig(Config):
 
     # postfix for retrieve the source files form the source code directory.
     postfix: str | tuple | None = field(default_factory=lambda: (".h", ".hpp", ".hxx"))
+    # file extension for the generated harness.
+    ext: str = "cpp"
     # a path to the target library or binary, should be not none
     libpath: str = None
     # additional libraries for link
