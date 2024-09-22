@@ -250,7 +250,11 @@ class HarnessGenerator:
                 f"Success to generate the harness, written in harness/{filename}"
             )
 
-            if trial.converged or api_mutator.converge():
+            if (
+                trial.converged
+                or self.trial_converge(trial, covered)
+                or api_mutator.converge()
+            ):
                 trial.converged = True
                 self.logger.log(f"Generation converged")
                 break
@@ -300,3 +304,14 @@ class HarnessGenerator:
         """
         # TODO: validate the harness
         return None
+
+    def trial_converge(self, trial: Trial, cov: Covered) -> bool:
+        """Check the generation trial converge.
+        Args:
+            trial: the statistics about current harness generation trials.
+            cov: the statistics about the fuzzer coverage.
+        Returns:
+            whether harness generator enough to try or not.
+        """
+        # trivial case
+        return trial.success > 0

@@ -12,7 +12,7 @@ class APICombMutator:
 
     def converge(self) -> bool:
         # TODO: check api mutation convergence
-        return True
+        return False
 
     def select(self, minlen: int, maxlen: int):
         # temporally return the random apis from the gadgets
