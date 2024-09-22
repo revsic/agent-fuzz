@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 
 from agentfuzz.analyzer import Factory
 from agentfuzz.config import Config
-from agentfuzz.harness import HarnessGenerator
 from agentfuzz.language.cpp.ast import ClangASTParser
 from agentfuzz.language.cpp.fuzzer import Clang, _CXXFLAGS
+from agentfuzz.language.supports import LanguageSupports
 
 
 @dataclass
@@ -51,11 +51,11 @@ class CppFactory(Factory):
         ]
 
 
-class CppProject:
+class CppSupports(LanguageSupports):
     """Harness generation project for C/C++."""
 
-    Config = CppConfig
-    Factory = CppFactory
+    _Config = CppConfig
+    _Factory = CppFactory
 
     def __init__(self, workdir: str, config: CppConfig):
         """Initialize the C/C++ project.
@@ -63,21 +63,21 @@ class CppProject:
             workdir: a path to the workspace directory.
             config: a C/C++ project configurations.
         """
-        self.factory = self.Factory(
-            workdir,
-            config,
-            ClangASTParser(include_path=config.include_dir),
-            Clang(
-                libpath=[config.libpath] + config.links,
-                include_dir=config.include_dir,
-                cxx=config.cxx,
-                cxxflags=config.cxxflags,
+        super().__init__(
+            workdir=workdir,
+            config=config,
+            factory=self._Factory(
+                workdir,
+                config,
+                ClangASTParser(include_path=config.include_dir),
+                Clang(
+                    libpath=[config.libpath] + config.links,
+                    include_dir=config.include_dir,
+                    cxx=config.cxx,
+                    cxxflags=config.cxxflags,
+                ),
             ),
         )
-
-    def run(self):
-        """Run the AgentFuzz pipeline."""
-        HarnessGenerator(self.factory).run()
 
     @classmethod
     def from_yaml(cls, projdir: str, config: str):
