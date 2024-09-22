@@ -22,9 +22,9 @@ class LanguageSupports:
         self.config = config
         self.factory = factory
 
-    def run(self):
+    def run(self, load_from_state: bool = True):
         """Run the AgentFuzz pipeline."""
-        self._Generator(self.factory, self.workdir).run()
+        self._Generator(self.factory, self.workdir).run(load_from_state)
 
     @classmethod
     def from_yaml(cls, workdir: str, config: str) -> "LanguageSupports":

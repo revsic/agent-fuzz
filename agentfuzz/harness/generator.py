@@ -125,18 +125,18 @@ class HarnessGenerator:
         # listup the apis and types
         targets, types = self.factory.listup_apis(), self.factory.listup_types()
         # construct mutator
-        if load_from_state:
-            trial = Trial.load(os.path.join(self._dir_state, "latest-trial.json"))
-            api_mutator = APICombMutator.load(
-                os.path.join(self._dir_state, "latest-apimutator.json")
-            )
+        _latest = os.path.join(self._dir_state, "latest.json")
+        if load_from_state and os.path.exists(_latest):
+            with open(_latest) as f:
+                latest = json.load(_latest)
+            trial = Trial.load(latest["trial"])
+            api_mutator = APICombMutator.load(latest["mutator-api"])
         else:
             trial, api_mutator = Trial(), APICombMutator(targets)
         while True:
-            if trial.converged or api_mutator.converge():
-                trial.converged = True
-                self.logger.log(f"Generation converged")
-                break
+            # save the latest state
+            with open(_latest, "w") as f:
+                json.dump({"trial": trial.dump(), "mutator-api": api_mutator.dump()}, f)
 
             trial.trial += 1
             self.logger.log(f"Trial: {trial.trial}")
@@ -228,6 +228,11 @@ class HarnessGenerator:
             self.logger.log(
                 f"Success to generate the harness, written in harness/{filename}"
             )
+
+            if trial.converged or api_mutator.converge():
+                trial.converged = True
+                self.logger.log(f"Generation converged")
+                break
 
     def _choose(self, items: list, n: int) -> list:
         """Simple implementation of `np.random.choice`.
