@@ -43,6 +43,7 @@ class LibFuzzer(Fuzzer):
         """
         outdir = outdir or f"{corpus_dir}_min"
         os.makedirs(outdir, exist_ok=True)
+        # TODO: Redirect stdout
         run = subprocess.run([self.path, "-merge=1", outdir, corpus_dir])
         try:
             run.check_returncode()
@@ -85,12 +86,11 @@ class LibFuzzer(Fuzzer):
         if corpus_dir is not None:
             cmd.append(corpus_dir)
         if fuzzdict is not None:
-            cmd.extend(["-dict", fuzzdict])
+            cmd.append(f"-dict={fuzzdict}")
 
         self._proc = subprocess.Popen(
             cmd,
-            stderr=subprocess.STDOUT,
-            stdout=open(_logfile or f"{self.path}.log", "wb"),
+            stderr=open(_logfile or f"{self.path}.log", "wb"),
             env={**os.environ, "LLVM_PROFILE_FILE": _profile or f"{self.path}.profraw"},
         )
         self._timeout = time() + timeout
@@ -223,11 +223,12 @@ class Clang(Compiler):
         """Compile the given harness to fuzzer object.
         Args:
             srcfile: a path to the source code file.
+            _outpath: a path to the compiled binary, use `{srcfile}.out` if it is not provided.
         Returns:
             fuzzer object.
         """
         _include_args = [arg for path in self.include_dir for arg in ("-I", path)]
-        executable = _outpath or tempfile.mktemp()
+        executable = _outpath or f"{srcfile}.out"
         output = subprocess.run(
             [
                 self.cxx,
