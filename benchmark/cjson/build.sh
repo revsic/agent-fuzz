@@ -1,6 +1,8 @@
 #!/bin/bash
 
-WORKDIR=./workspace
+if [ -z $WORKDIR ]; then
+    WORKDIR=./workspace
+fi
 # | workspace
 #   | src (required)
 #     | cJSON (repo)
