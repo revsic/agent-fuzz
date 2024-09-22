@@ -1,44 +1,39 @@
 import os
 import json
-from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel
 
+from agentfuzz.logger import Logger
 
-class Logger:
+
+class AgentLogger(Logger):
     """Logger for LLM Agent."""
 
-    DEFAULT: "Logger"
+    DEFAULT: "AgentLogger"
 
     def __init__(
         self,
         path: str = "agent.log",
         verbose: bool = True,
-        _timezone: int | timezone = 9,
     ):
         """Initialize the logger.
         Args:
-            path: path to the log file.
+            path: a path to the log file.
             verbose: whether print to the terminal or not.
         """
-        self.path = path
-        self.verbose = verbose
-        if isinstance(_timezone, int):
-            _timezone = timezone(timedelta(hours=_timezone))
-        self._timezone = _timezone
+        super().__init__(path, verbose)
 
     def log(self, msg):
-        timestamp = datetime.now(self._timezone).strftime("%Y.%m.%dT%H:%M:%S")
+        """Log the json-serializable object.
+        Args:
+            msg: a json serializable object, e.g. pydantic or dictionary, etc.
+        """
         if isinstance(msg, BaseModel):
             msg = msg.model_dump()
-        msg = f"[{timestamp}] {json.dumps(msg, indent=2, ensure_ascii=False)}\n"
-        with open(self.path, "a") as f:
-            f.write(msg)
-        if self.verbose:
-            print(msg)
+        super().log(json.dumps(msg, indent=2, ensure_ascii=False))
 
 
-Logger.DEFAULT = Logger(
-    os.environ.get("LOGPATH", "agent.log"),
+AgentLogger.DEFAULT = AgentLogger(
+    os.environ.get("AGENTFUZZ_LOG_AGENT", "agent.log"),
     verbose=True,
 )

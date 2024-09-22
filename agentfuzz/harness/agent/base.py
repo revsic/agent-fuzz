@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import litellm
 
-from agentfuzz.harness.agent.logger import Logger
+from agentfuzz.harness.agent.logger import AgentLogger
 
 
 class Agent:
@@ -16,12 +16,14 @@ class Agent:
         turn: int | None
         error: str | None = None
 
-    def __init__(self, logger: Logger | None = None, _stack: list[str] | None = None):
+    def __init__(
+        self, logger: AgentLogger | None = None, _stack: list[str] | None = None
+    ):
         """Initialize the agent.
         Args:
             logger: a LLM message logger.
         """
-        self.logger = logger or Logger.DEFAULT
+        self.logger = logger or AgentLogger.DEFAULT
         self._stack = _stack
 
     def run(
