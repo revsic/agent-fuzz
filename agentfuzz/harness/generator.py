@@ -13,17 +13,7 @@ from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRend
 from agentfuzz.logger import Logger
 
 
-@dataclass
-class Trial:
-    trial: int = 0
-    failure_agent: int = 0
-    failure_parse: int = 0
-    failure_compile: int = 0
-    failure_fuzzer: int = 0
-    failure_validity: int = 0
-    success: int = 0
-    converged: bool = False
-
+class _Serializable:
     def dump(self) -> dict:
         """Serialize the states into the single dictionary.
         Returns:
@@ -43,6 +33,26 @@ class Trial:
             with open(dumps):
                 dumps = json.load(dumps)
         return cls(**dumps)
+
+
+@dataclass
+class Trial(_Serializable):
+    trial: int = 0
+    failure_agent: int = 0
+    failure_parse: int = 0
+    failure_compile: int = 0
+    failure_fuzzer: int = 0
+    failure_validity: int = 0
+    success: int = 0
+    converged: bool = False
+
+
+@dataclass
+class Covered(_Serializable):
+    pass
+
+    def merge(self, cov: Coverage):
+        pass
 
 
 class HarnessGenerator:
@@ -130,13 +140,21 @@ class HarnessGenerator:
             with open(_latest) as f:
                 latest = json.load(_latest)
             trial = Trial.load(latest["trial"])
+            covered = Covered.load(latest["coverage"])
             api_mutator = APICombMutator.load(latest["mutator-api"])
         else:
-            trial, api_mutator = Trial(), APICombMutator(targets)
+            trial, covered, api_mutator = Trial(), Covered(), APICombMutator(targets)
         while True:
             # save the latest state
             with open(_latest, "w") as f:
-                json.dump({"trial": trial.dump(), "mutator-api": api_mutator.dump()}, f)
+                json.dump(
+                    {
+                        "trial": trial.dump(),
+                        "coverage": covered.dump(),
+                        "mutator-api": api_mutator.dump(),
+                    },
+                    f,
+                )
 
             trial.trial += 1
             self.logger.log(f"Trial: {trial.trial}")
@@ -217,6 +235,7 @@ class HarnessGenerator:
 
             cov = fuzzer.coverage()
             # feedback to api mutator
+            covered.merge(cov)
             api_mutator.feedback(cov)
             # check the harness validity
             if (invalid := self._check_validity(path, retn, cov)) is not None:
