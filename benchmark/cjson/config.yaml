@@ -1,13 +1,13 @@
 # Config
 - name: cjson
-- srcdir: ./workspace/src/cJSON
-- postfix:
-  - .h
-  - .hpp
-  - .hxx
-- corpus_dir: ./workspace/corpus
-- fuzzdict: ./workspace/dict/json.dict
-# CppConfig
-- libpath: ./workspace/lib/libcjson.a
-- include_dir:
-  - ./workspace/include
+  srcdir: ./workspace/src/cJSON
+  postfix:
+    - .h
+    - .hpp
+    - .hxx
+  corpus_dir: ./workspace/corpus
+  fuzzdict: ./workspace/dict/json.dict
+  # CppConfig
+  libpath: ./workspace/lib/libcjson.a
+  include_dir:
+    - ./workspace/include

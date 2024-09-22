@@ -24,7 +24,7 @@ Prepare the project, reference sample [benchmark/cjson/build](./benchmark/cjson/
 ```bash
 cd benchmark/cjson
 bash build.sh
-# project directory
+# project structure
 # | workspace
 #   | src (required)
 #     | cJSON (repo)
@@ -38,7 +38,7 @@ bash build.sh
 #     | json.dict
 ```
 
-Run the agent fuzz
+Run the agent fuzz, reference sample [benchmark/cjson/config](./benchmark/cjson/config.yaml)
 ```bash
 cd benchmark/cjson
 OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
@@ -66,6 +66,7 @@ Static analysis
 - [x] Clang AST parser supports
 - [x] Collect API function/type gadgets
 - [ ] Infer input constraints 
+- [ ] Critical path extraction
 
 Dynamic analysis
 
@@ -74,14 +75,15 @@ Dynamic analysis
 - [x] Compute the branch coverage
 
 FP Elimination
-- [ ] Runtime fuzzing validation
-- [ ] Runtime coverage validation
+- [ ] Runtime fuzzing validation: 60sec for cov growth, 600sec for corpus pool
+- [ ] Runtime coverage validation: critical path check
 - [ ] Corpuse reusage
 
 Agentic Fuzz-driver generation
 
 - [x] Initial generation pipeline
-- [ ] Energy/Density measure supports (ref:PromptFuzz)
+- [ ] Energy measure supports (ref:PromptFuzz)
+- [ ] Density measure supports
 - [ ] API scheduler
 - [ ] Fuzzer-run / harness-generation scheduler
 - [ ] Agentic fuzz-driver generation
