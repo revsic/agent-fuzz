@@ -195,7 +195,8 @@ class HarnessGenerator:
                 self.logger.log(
                     f"  Failed to compile the harness: {e} (written as {uid})"
                 )
-                break
+                continue
+            self.logger.log(f"  Success to compile the code")
 
             retn: int | None | Exception
             try:
@@ -211,7 +212,8 @@ class HarnessGenerator:
                     f.write(traceback.format_exc())
                 trial.failure_fuzzer += 1
                 self.logger.log(f"  Failed to run the fuzzer: {e} (written as {uid})")
-                break
+                continue
+            self.logger.log(f"  Success to fuzz the code")
 
             cov = fuzzer.coverage()
             # feedback to api mutator
