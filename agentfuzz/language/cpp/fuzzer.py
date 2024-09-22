@@ -48,7 +48,6 @@ class LibFuzzer(Fuzzer):
             self._workdir, f"{os.path.basename(corpus_dir)}_min"
         )
         os.makedirs(outdir, exist_ok=True)
-        # TODO: Redirect stdout
         with open(f"{self.path}.minimize.log", "wb") as f:
             run = subprocess.run([self.path, "-merge=1", outdir, corpus_dir], stderr=f)
         try:
