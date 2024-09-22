@@ -38,13 +38,51 @@ class APICombMutator:
         Returns:
             a list of selected apis.
         """
-        energies = self.energy(coverage)
+        energies = self._energy(coverage)
         # from PromptFuzz
         det = min(len(self.seeds) / 100, 0.8) > random.random()
         if len(self.seeds) > 0 and det:
             return self._mutate_from_seeds(energies, minlen, maxlen)
         # load the highest energies
         return self._highest_energies(energies, maxlen)
+
+    def converge(self) -> bool:
+        """Check the mutation convergence.
+        Returns:
+            True if the mutation policy converges.
+        """
+        # trivial case
+        return False
+
+    def dump(self) -> dict:
+        """Serialize the states of mutator into the single dictionary.
+        Returns:
+            the states of mutator.
+        """
+        return {
+            "gadgets": [g.dump() for g in self.gadgets],
+            "counter": self.counter,
+            "seeds": self.seeds,
+        }
+
+    @classmethod
+    def load(cls, dumps: str | dict) -> "APICombMutator":
+        """Load from the state.
+        Args:
+            dumps: the dumped states from the method `APICombMutator.dump`.
+        Returns:
+            loaded api combination mutator.
+        """
+        if isinstance(dumps, str):
+            with open(dumps):
+                dumps = json.load(dumps)
+        return cls(
+            [APIGadget.load(g) for g in dumps["gadgets"]],
+            counter=dumps["counter"],
+            seeds=dumps["seeds"],
+        )
+
+    ##### internal methods
 
     def _group_energies(
         self, energies: list[float] | list[tuple[APIGadget, float]]
@@ -107,14 +145,7 @@ class APICombMutator:
         Returns:
             the list of mutated seeds
         """
-        (seed,) = random.choices(
-            self.seeds,
-            [q["quality"] for q in self.seeds.values()],
-            k=1,
-        )
-        names = set(self.seeds[seed]["critical_path"])
-        gadgets = [(g, e) for g, e in zip(self.gadgets, energies) if g.name in names]
-        # TODO: mutator
+        gadgets = self._sample_apis_from_seeds(energies)
         match random.randint(3):
             case 0:  # insert
                 return self._insert(gadgets, maxlen, _changes)
@@ -122,7 +153,32 @@ class APICombMutator:
                 gadgets = self._remove(gadgets, _changes)
                 return self._insert(gadgets, maxlen, _changes)
             case 2:  # crossover
-                pass
+                other = self._sample_apis_from_seeds(energies)
+                return self._crossover(gadgets, other, _changes)
+
+    def _sample_apis_from_seeds(
+        self, energies: list[float]
+    ) -> list[tuple[APIGadget, float]]:
+        """Sample a seed from seeds and convert it to a list of APIs.
+        Returns:
+            a list of API and their energies.
+        """
+        pack = {
+            gadget.name: (gadget, energy)
+            for gadget, energy in zip(self.gadgets, energies)
+        }
+        (seed,) = random.choices(
+            self.seeds,
+            [q["quality"] for q in self.seeds.values()],
+            k=1,
+        )
+        names, gadgets = set(), []
+        for name in self.seeds[seed]["critical_path"]:
+            if name in names or name not in pack:
+                continue
+            gadgets.append(pack[name])
+            names.add(name)
+        return gadgets
 
     def _insert(
         self,
@@ -140,7 +196,8 @@ class APICombMutator:
         Returns:
             inserted gadgets.
         """
-        gadgets = {g.signature(): g for g, _ in gadgets}
+        gadgets = [g for g, _ in gadgets]
+        _cache = {g.signature() for g in gadgets}
         # group the energies
         grouped = self._group_energies(energies)
         for _, _gadgets in grouped:
@@ -149,11 +206,12 @@ class APICombMutator:
         candidates = [gadget for _, _gadgets in grouped for gadget in _gadgets]
         while len(gadgets) < maxlen and k > 0:
             gadget, *candidates = candidates
-            if gadget.signature() in gadgets:
+            if gadget.signature() in _cache:
                 continue
-            gadgets[gadget.signature()] = gadget
+            _cache.add(gadget.signature())
+            gadgets.insert(random.randint(len(gadgets)), gadget)
             k -= 1
-        return list(gadgets.values())
+        return gadgets
 
     def _remove(
         self, gadgets: list[tuple[APIGadget, float]], k: int
@@ -171,58 +229,47 @@ class APICombMutator:
         )
         return [gadget for gadget, _ in gadgets if gadget.signature() not in lowest]
 
-    def converge(self) -> bool:
-        # TODO: check api mutation convergence
-        return False
-
-    def _energy(self, cov: float, seed: int, prompt: int) -> float:
-        """Compute the energy of a single API.
+    def _crossover(
+        self,
+        gadgets: list[tuple[APIGadget, float]],
+        other: list[tuple[APIGadget, float]],
+        k: int,
+    ) -> list[APIGadget]:
+        """Cross-over the gadgets.
         Args:
-            cov: a branch coverage of the given API.
-            seed: the number of the seeds containing the API.
-            prompt: the number of the prompts containing the API.
+            gadgets, other: a list of target gadgets and their energies.
+            k: the number of the gadgets to replace.
         Returns:
-            a energy value.
+            crossed-gadgets.
         """
-        return (1 - cov) / ((1 + seed) * (1 + prompt)) ** self.exponent
+        # on a longer baseline
+        if len(gadgets) < len(other):
+            gadgets, other = other, gadgets
+        # if both are shorter than k
+        if len(gadgets) < k:
+            return gadgets + other
+        # if shorter one is shorter than k
+        if len(other) < k:
+            i = random.randint(len(gadgets) - len(other))
+            return gadgets[:i] + other + gadgets[i + len(other) :]
+        # if both are longer than k
+        i = random.randint(len(gadgets) - k)
+        j = random.randint(len(other) - k)
+        return gadgets[:i] + other[j : j + k] + gadgets[i + k :]
 
-    def energy(self, coverage: Coverage) -> list[float]:
+    def _energy(self, coverage: Coverage) -> list[float]:
         """Compute the energy for scheduling the api mutation.
         Args:
             coverage: a list of API coverages.
         Returns:
             list of energies that order of `self.gadgets`.
         """
+
+        def _energy(cov: float, seed: int, prompt: int) -> float:
+            return (1 - cov) / ((1 + seed) * (1 + prompt)) ** self.exponent
+
         return [
-            self._energy(coverage.cover(g.name), cnt["seed"], cnt["prompt"])
+            _energy(coverage.cover(g.name), cnt["seed"], cnt["prompt"])
             for g in self.gadgets
             if (cnt := self.counter[g.signature()])
         ]
-
-    def dump(self) -> dict:
-        """Serialize the states of mutator into the single dictionary.
-        Returns:
-            the states of mutator.
-        """
-        return {
-            "gadgets": [g.dump() for g in self.gadgets],
-            "counter": self.counter,
-            "seeds": self.seeds,
-        }
-
-    @classmethod
-    def load(cls, dumps: str | dict) -> "APICombMutator":
-        """Load from the state.
-        Args:
-            dumps: the dumped states from the method `APICombMutator.dump`.
-        Returns:
-            loaded api combination mutator.
-        """
-        if isinstance(dumps, str):
-            with open(dumps):
-                dumps = json.load(dumps)
-        return cls(
-            [APIGadget.load(g) for g in dumps["gadgets"]],
-            counter=dumps["counter"],
-            seeds=dumps["seeds"],
-        )
