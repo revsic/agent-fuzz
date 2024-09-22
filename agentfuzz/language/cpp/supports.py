@@ -21,7 +21,7 @@ class CppConfig(Config):
     # additional libraries for link
     links: list[str] = field(default_factory=list)
     # a path to the directory for preprocessing `#include` macro.
-    include_dir: str | list[str] | None = None
+    include_dir: list[str] = field(default_factory=list)
     # a path to the clang++ compiler.
     cxx: str = "clang++"
     # additional compiler arguments.
@@ -39,9 +39,7 @@ class CppFactory(Factory):
         Returns:
             a list of the header files.
         """
-        include_dir = self.config.include_dir or self.config.srcdir
-        if isinstance(include_dir, str):
-            include_dir = [include_dir]
+        include_dir = self.config.include_dir or [self.config.srcdir]
         return [
             os.path.join(root, filename)
             for dir_ in include_dir
@@ -69,9 +67,10 @@ class CppSupports(LanguageSupports):
             factory=self._Factory(
                 workdir,
                 config,
-                ClangASTParser(include_path=config.include_dir),
+                ClangASTParser(include_dir=config.include_dir),
                 Clang(
-                    libpath=[config.libpath] + config.links,
+                    libpath=config.libpath,
+                    links=config.links,
                     include_dir=config.include_dir,
                     cxx=config.cxx,
                     cxxflags=config.cxxflags,

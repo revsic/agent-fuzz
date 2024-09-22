@@ -9,4 +9,5 @@
 - fuzzdict: ./workspace/dict/json.dict
 # CppConfig
 - libpath: ./workspace/lib/libcjson.a
-- include_dir: ./workspace/include
+- include_dir:
+  - ./workspace/include

@@ -40,14 +40,12 @@ class CStyleTypeGadget(TypeGadget):
 class ClangASTParser(ASTParser):
     """Clang AST-based static analysis supports."""
 
-    def __init__(
-        self, include_path: str | list[str] | None = None, _max_cache: int = 500
-    ):
+    def __init__(self, include_dir: list[str] = [], _max_cache: int = 500):
         """Preare the clang ast parser.
         Args:
-            include_path: paths to the directories for `#incldue` preprocessor.
+            include_dir: a list of paths to the directories for `#incldue` preprocessor.
         """
-        self.include_path = include_path
+        self.include_dir = include_dir
         # for dumping cache
         self._ast_caches = {}
         self._max_cache = _max_cache
@@ -198,7 +196,7 @@ class ClangASTParser(ASTParser):
         if _key in self._ast_caches:
             return self._ast_caches[_key]
         # dump the ast
-        dumped = self._run_ast_dump(source, self.include_path)
+        dumped = self._run_ast_dump(source, self.include_dir)
         if len(self._ast_caches) > self._max_cache:
             # FIFO
             self._ast_caches = dict(list(self._ast_caches.items())[1:])
@@ -207,19 +205,15 @@ class ClangASTParser(ASTParser):
         return dumped
 
     @classmethod
-    def _run_ast_dump(cls, source: str, include_path: str | list[str] | None = None):
+    def _run_ast_dump(cls, source: str, include_dir: list[str] = []):
         """Run the clang with ast-dump options.
         Args:
             source: a path to the target source file.
-            include_path: paths to the directories for `#include` preprocessor.
+            include_dir: a list of paths to the directories for `#include` preprocessor.
         Returns:
             dumped abstract syntax tree.
         """
-        _include = []
-        if include_path is not None:
-            if isinstance(include_path, str):
-                include_path = [include_path]
-            _include = [cmdarg for path in include_path for cmdarg in ("-I", path)]
+        _include = [cmdarg for path in include_dir for cmdarg in ("-I", path)]
 
         proc = subprocess.run(
             [
@@ -227,9 +221,7 @@ class ClangASTParser(ASTParser):
                 "-fsyntax-only",
                 "-Xclang",
                 "-ast-dump=json",
-            ]
-            + _include
-            + [
+                *_include,
                 source,
             ],
             capture_output=True,

@@ -10,13 +10,20 @@ from agentfuzz.language.cpp.lcov import parse_lcov
 class LibFuzzer(Fuzzer):
     """Libfuzzer wrapper."""
 
-    def __init__(self, path: str, minimize_corpus: bool = True):
+    def __init__(
+        self,
+        path: str,
+        libpath: str,
+        minimize_corpus: bool = True,
+    ):
         """Initialize the fuzzer wrapper.
         Args:
             path: a path to the executable file.
+            libpath: a path to the library for tracking the coverage.
             minimize_corpus: minimize the corpus if given is True, using a `-merge=1` option.
         """
         self.path = path
+        self.libpath = libpath
         self.minimize_corpus = minimize_corpus
         # for supporting parallel run
         self._proc: subprocess.Popen | None = None
@@ -127,10 +134,12 @@ class LibFuzzer(Fuzzer):
             self._proc.stdout.close()
         self._proc, self._timeout = None, None
 
-    def coverage(self, libpath: str, _profile: str | None = None) -> Coverage:
+    def coverage(
+        self, libpath: str | None = None, _profile: str | None = None
+    ) -> Coverage:
         """Collect the coverage w.r.t. the given library.
         Args:
-            libpath: a path to the target library.
+            libpath: a path to the target library, assume it as `self.libpath` if it is not provided.
             _profile: a path to the coverage profiling file, assume it as f"{self.path}.profraw" if it is not provded.
         """
         # assign default value
@@ -153,7 +162,7 @@ class LibFuzzer(Fuzzer):
                 [
                     "llvm-cov",
                     "export",
-                    libpath,
+                    libpath or self.libpath,
                     "-format=lcov",
                     f"--instr-profile={_merged}",
                 ],
@@ -190,26 +199,23 @@ class Clang(Compiler):
 
     def __init__(
         self,
-        libpath: str | list[str] = [],
-        include_dir: str | list[str] | None = None,
+        libpath: str,
+        links: list[str] = [],
+        include_dir: list[str] = [],
         cxx: str = "clang++",
         cxxflags: list[str] = _CXXFLAGS,
     ):
         """Prepare for the compile.
         Args:
             libpath: a path to the library path.
-            include_dir: a path to the directory for preprocessing #include macro.
+            links: additional libraries to link.
+            include_dir: a list of paths to the directory for preprocessing #include macro.
             cxx: a path to the clang++ compiler.
             cxxflags: additional compiler arguments.
         """
-        self.libpath: list[str] = libpath
-        if isinstance(libpath, str):
-            self.libpath = [libpath]
-
-        self.include_dir: list[str] | None = include_dir
-        if isinstance(include_dir, str):
-            self.include_dir = [include_dir]
-
+        self.libpath = libpath
+        self.links = links
+        self.include_dir = include_dir
         self.cxx = cxx
         self.cxxflags = cxxflags
 
@@ -220,9 +226,7 @@ class Clang(Compiler):
         Returns:
             fuzzer object.
         """
-        _include_args = []
-        if self.include_dir is not None:
-            _include_args = [arg for path in self.include_dir for arg in ("-I", path)]
+        _include_args = [arg for path in self.include_dir for arg in ("-I", path)]
         executable = _outpath or tempfile.mktemp()
         output = subprocess.run(
             [
@@ -232,7 +236,8 @@ class Clang(Compiler):
                 *_include_args,
                 "-o",  # specifying the output path
                 executable,
-                *self.libpath,  # linkage
+                self.libpath,  # linkage
+                *self.links,
             ],
             capture_output=True,
         )
@@ -244,4 +249,4 @@ class Clang(Compiler):
                 f"{self.cxx} returned non-zero exit status:\n{stderr}"
             ) from e
 
-        return LibFuzzer(executable)
+        return LibFuzzer(executable, self.libpath)
