@@ -134,25 +134,12 @@ class HarnessGenerator:
         # construct mutator
         _latest = os.path.join(self._dir_state, "latest.json")
         if load_from_state and os.path.exists(_latest):
-            with open(_latest) as f:
-                latest = json.load(_latest)
-            trial = Trial.load(latest["trial"])
-            covered = Covered.load(latest["coverage"])
-            api_mutator = APICombMutator.load(latest["mutator-api"])
+            trial, covered, api_mutator = self.load(_latest)
         else:
-            trial, api_mutator = Trial(), APICombMutator(targets)
-            covered = Covered({api.name: {} for api in targets})
-        while True:
+            trial, covered, api_mutator = Trial(), Covered(), APICombMutator(targets)
+        while not trial.converged:
             # save the latest state
-            with open(_latest, "w") as f:
-                json.dump(
-                    {
-                        "trial": trial.dump(),
-                        "coverage": covered.dump(),
-                        "mutator-api": api_mutator.dump(),
-                    },
-                    f,
-                )
+            self.dump(trial, covered, api_mutator, path=_latest)
 
             trial.trial += 1
             self.logger.log(f"Trial: {trial.trial}")
@@ -244,19 +231,51 @@ class HarnessGenerator:
             with open(path, "w") as f:
                 f.write(code)
             trial.success += 1
-            self.append_seeds(path)
+            api_mutator.append_seeds(path)
             self.logger.log(
                 f"Success to generate the harness, written in harness/{filename}"
             )
             # stop condition check
-            if (
-                trial.converged
-                or self.trial_converge(trial, covered)
-                or api_mutator.converge()
-            ):
+            if self.trial_converge(trial, covered) or api_mutator.converge():
                 trial.converged = True
                 self.logger.log(f"Generation converged")
                 break
+        # save the last state
+        self.dump(trial, covered, api_mutator, path=_latest)
+
+    def dump(
+        self,
+        trial: Trial,
+        covered: Covered,
+        api_mutator: APICombMutator,
+        path: str | None = None,
+    ):
+        """Save the state of the harness generator.
+        Args:
+            trial, covered, api_mutator: the states of harness generator.
+        """
+        with open(path or os.path.join(self._dir_state, "latest.json"), "w") as f:
+            json.dump(
+                {
+                    "trial": trial.dump(),
+                    "coverage": covered.dump(),
+                    "mutator-api": api_mutator.dump(),
+                },
+                f,
+            )
+
+    def load(self, path: str | None = None):
+        """Load the states of the harness generator.
+        Returns:
+            loaded states.
+        """
+        with open(path or os.path.join(self._dir_state, "latest.json")) as f:
+            latest = json.load(f)
+        return (
+            Trial.load(latest["trial"]),
+            Covered.load(latest["coverage"]),
+            APICombMutator.load(latest["mutator-api"]),
+        )
 
     def _choose(self, items: list, n: int) -> list:
         """Simple implementation of `np.random.choice`.
