@@ -82,11 +82,10 @@ FP Elimination
 Agentic Fuzz-driver generation
 
 - [x] Initial generation pipeline
-- [ ] Energy measure supports (ref:PromptFuzz)
+- [x] Energy measure supports (ref:PromptFuzz)
 - [ ] Density measure supports
-- [ ] API scheduler
+- [x] API scheduler
 - [ ] Fuzzer-run / harness-generation scheduler
 - [ ] Agentic fuzz-driver generation
 - [x] State load and dump supports
-
-### Coverage feedback to fuzz-driver
+- [ ] Fuzzer fuser
