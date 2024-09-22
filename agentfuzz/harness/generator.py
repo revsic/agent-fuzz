@@ -33,14 +33,12 @@ class HarnessGenerator:
         targets, types = self.factory.listup_apis(), self.factory.listup_types()
         # construct mutator
         api_mutator = APICombMutator(targets)
-        # TODO: Support in range combination length
-        comblen, _ = config.comblen
         while True:
-            apis = api_mutator.select(comblen)
+            apis = api_mutator.select(*config.comblen)
             # construct the prompt
             prompt = prompt_baseline(
                 project=config.name,
-                headers=[],  # TODO: Retrieve the system headers
+                headers=[],  # TODO: Retrieve the system headers/imports
                 apis=(
                     targets
                     if len(targets) < config.max_apis
@@ -65,10 +63,11 @@ class HarnessGenerator:
             _ext, code = code
             # write to the work directory
             seeds += 1
-            path = os.path.join(self.workdir, f"work/{seeds}.{config.ext}".rstrip("."))
+            filename = f"{seeds}.{config.ext}".rstrip(".")
+            path = os.path.join(self.workdir, "work", filename)
             with open(path, "w") as f:
                 f.write(code)
-            # check the validity
+            # check the validity in runtime
             try:
                 fuzzer = self.factory.compiler.compile(path)
                 retn = fuzzer.run(
@@ -81,18 +80,26 @@ class HarnessGenerator:
                 # feedback to api mutator
                 api_mutator.feedback(cov)
                 # check the harness validity
-                if self._validate(path, retn, cov):
+                if self._valid(path, retn, cov):
                     with open(
-                        os.path.join(self.workdir, f"harness/{seeds}.{config.ext}"), "w"
+                        os.path.join(self.workdir, "harness", filename), "w"
                     ) as f:
                         f.write(code)
             except Exception as e:
+                # TODO: write the log
                 continue
 
             if api_mutator.converge():
                 break
 
     def _choose(self, items: list, n: int) -> list:
+        """Simple implementation of `np.random.choice`.
+        Args:
+            items: a list.
+            n: the number of the items to choose.
+        Returns:
+            n-sized list of randomly shuffled elements(non-duplicated).
+        """
         # shallow copy
         items = [*items]
         # shuffle
@@ -100,6 +107,13 @@ class HarnessGenerator:
         return items[:n]
 
     def _parse_code(self, response: str) -> tuple[str | None, str] | None:
+        """Parse the codes from the LLM response.
+        Args:
+            response: a given LLM response.
+        Returns:
+            a tuple of a language specifier and the corresponding code if found.
+            None if failed to found a code segment from the given response.
+        """
         # parse the code segment
         if (i := response.find("```")) < 0:
             return None
@@ -110,6 +124,14 @@ class HarnessGenerator:
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
 
-    def _validate(self, path: str, retn: int | None | Exception, cov: Coverage) -> bool:
+    def _valid(self, path: str, retn: int | None | Exception, cov: Coverage) -> bool:
+        """Validate the harness.
+        Args:
+            path: a path to the harness source code.
+            retn: a return code of the fuzzer compiled with the harness.
+            cov: a coverage description about the fuzzer run.
+        Returns:
+            True if the given harness is valid.
+        """
         # TODO: validate the harness
         return True
