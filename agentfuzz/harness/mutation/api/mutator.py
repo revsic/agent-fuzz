@@ -46,26 +46,45 @@ class APICombMutator:
         # load the highest energies
         return self._highest_energies(energies, maxlen)
 
-    def _highest_energies(self, energies: list[float], len_: int) -> list[APIGadget]:
+    def _group_energies(
+        self, energies: list[float] | list[tuple[APIGadget, float]]
+    ) -> list[tuple[float, list[APIGadget]]]:
+        """Group the gadgets w.r.t. the energies.
+        Args:
+            energies: a list of the energies, that order of `self.gadgets` if the given is list[float].
+        Returns:
+            grouped gadget, energy-descending order.
+        """
+        if len(energies) == 0:
+            return []
+        fst, *_ = energies
+        if isinstance(fst, float):
+            energies = zip(self.gadgets, energies)
+        # group w.r.t. the energy
+        grouped = {}
+        for gadget, energy in energies:
+            if energy not in grouped:
+                grouped[energy] = []
+            grouped[energy].append(gadget)
+        # order with descending order
+        return sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+
+    def _highest_energies(
+        self, energies: list[float] | list[tuple[APIGadget, float]], len_: int
+    ) -> list[APIGadget]:
         """Return the gadgets of top-k highest energies.
         If there are gadgets of the same energy, sampled above those.
 
         Args:
-            energies: a list of energies, that order of `self.gadgets`.
+            energies: a list of energies, that order of `self.gadgets` if the given is list[float].
             len_: the length of the returning list.
         Returns:
             a list of sampled gadgets
         """
         # group w.r.t. the energy
-        grouped = {}
-        for gadget, energy in zip(self.gadgets, energies):
-            if energy not in grouped:
-                grouped[energy] = []
-            grouped[energy].append(gadget)
-        # order with descending order
-        grouped = sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+        grouped = self._group_energies(energies)
         sampled = []
-        for energy, gadgets in grouped:
+        for _, gadgets in grouped:
             # if remaining length cover all gadgets of the current bin
             if len(gadgets) <= len_:
                 sampled.extend(gadgets)
@@ -78,11 +97,15 @@ class APICombMutator:
         return sampled
 
     def _mutate_from_seeds(
-        self, energies: list[float], minlen: int, maxlen: int
+        self, energies: list[float], minlen: int, maxlen: int, _changes: int = 3
     ) -> list[APIGadget]:
         """Sample and mutate the API combination from the harness banks.
         Args:
-
+            energies: a list of the energies, that order of `self.gadgets`.
+            minlen, maxlen: the minimum/maximum length of a api list.
+            _changes: the number of the inserted/replaced gadgets.
+        Returns:
+            the list of mutated seeds
         """
         (seed,) = random.choices(
             self.seeds,
@@ -90,8 +113,63 @@ class APICombMutator:
             k=1,
         )
         names = set(self.seeds[seed]["critical_path"])
-        gadgets = [g for g in self.gadgets if g.name in names]
+        gadgets = [(g, e) for g, e in zip(self.gadgets, energies) if g.name in names]
         # TODO: mutator
+        match random.randint(3):
+            case 0:  # insert
+                return self._insert(gadgets, maxlen, _changes)
+            case 1:  # replace
+                gadgets = self._remove(gadgets, _changes)
+                return self._insert(gadgets, maxlen, _changes)
+            case 2:  # crossover
+                pass
+
+    def _insert(
+        self,
+        gadgets: list[tuple[APIGadget, float]],
+        energies: list[float],
+        maxlen: int,
+        k: int,
+    ) -> list[APIGadget]:
+        """Insert the k-gadgets of highest energies.
+        Args:
+            gadgets: the target gadgets and their energies.
+            energies: the list of energies, that order of `self.gadgets`.
+            maxlen: the maximum length of the gadgets.
+            k: the number of the gadgets to insert.
+        Returns:
+            inserted gadgets.
+        """
+        gadgets = {g.signature(): g for g, _ in gadgets}
+        # group the energies
+        grouped = self._group_energies(energies)
+        for _, _gadgets in grouped:
+            random.shuffle(_gadgets)
+        # unpack
+        candidates = [gadget for _, _gadgets in grouped for gadget in _gadgets]
+        while len(gadgets) < maxlen and k > 0:
+            gadget, *candidates = candidates
+            if gadget.signature() in gadgets:
+                continue
+            gadgets[gadget.signature()] = gadget
+            k -= 1
+        return list(gadgets.values())
+
+    def _remove(
+        self, gadgets: list[tuple[APIGadget, float]], k: int
+    ) -> list[APIGadget]:
+        """Remove the k-gadgets of lowest energies.
+        Args:
+            gadgets: a list of target gadgets and their energies.
+            k: the number of the gadgets to remove.
+        Returns:
+            removed gadgets.
+        """
+        lowest = set(
+            gadget.signature()
+            for gadget in self._highest_energies(gadgets, len(gadgets))[-k:]
+        )
+        return [gadget for gadget, _ in gadgets if gadget.signature() not in lowest]
 
     def converge(self) -> bool:
         # TODO: check api mutation convergence
