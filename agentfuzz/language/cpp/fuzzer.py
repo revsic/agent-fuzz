@@ -1,6 +1,6 @@
 import os
+import shutil
 import subprocess
-import tempfile
 from time import time
 
 from agentfuzz.analyzer import Compiler, Coverage, Fuzzer
@@ -15,16 +15,19 @@ class LibFuzzer(Fuzzer):
         path: str,
         libpath: str,
         minimize_corpus: bool = True,
+        _workdir: str | None = None,
     ):
         """Initialize the fuzzer wrapper.
         Args:
             path: a path to the executable file.
             libpath: a path to the library for tracking the coverage.
             minimize_corpus: minimize the corpus if given is True, using a `-merge=1` option.
+            _workdir: a path to the working directory, use `{os.path.dirname(path)}` if it is not provided.
         """
         self.path = path
         self.libpath = libpath
         self.minimize_corpus = minimize_corpus
+        self._workdir = _workdir or os.path.dirname(self.path)
         # for supporting parallel run
         self._proc: subprocess.Popen | None = None
         self._timeout: float | None = None
@@ -36,15 +39,18 @@ class LibFuzzer(Fuzzer):
         Args:
             corpus_dir: a path to the directory containing fuzzing inputs (corpus).
             outdir: a path to the directory to write a minimized corpus.
-                assume it as `f"{corpus_dir}_min"` if it is not provided.
+                assume it as `os.path.join(self._workdir, f"{os.path.basename(corpus_dir)}_min)"` if it is not provided.
         Returns:
             a path to the directory where minimized corpus is written.
                 None if minimizing process is failed.
         """
-        outdir = outdir or f"{corpus_dir}_min"
+        outdir = outdir or os.path.join(
+            self._workdir, f"{os.path.basename(corpus_dir)}_min"
+        )
         os.makedirs(outdir, exist_ok=True)
         # TODO: Redirect stdout
-        run = subprocess.run([self.path, "-merge=1", outdir, corpus_dir])
+        with open(f"{self.path}.minimize.log", "wb") as f:
+            run = subprocess.run([self.path, "-merge=1", outdir, corpus_dir], stderr=f)
         try:
             run.check_returncode()
         except subprocess.CalledProcessError:
@@ -76,11 +82,17 @@ class LibFuzzer(Fuzzer):
         # if already run
         if self._proc is not None:
             return self.poll()
-        # minimize the corpus first
-        if self.minimize_corpus and corpus_dir is not None:
-            # if successfully minimized
-            if minimized := self._minimize_corpus(corpus_dir):
-                corpus_dir = minimized
+        # isolate the corpus directory
+        if corpus_dir is not None:
+            if self.minimize_corpus:
+                # if successfully minimized
+                if minimized := self._minimize_corpus(corpus_dir):
+                    corpus_dir = minimized
+            else:
+                # since libfuzzer generate the new corpus inplace the directory
+                _new_dir = os.path.join(self._workdir, "corpus")
+                shutil.copytree(corpus_dir, _new_dir)
+                corpus_dir = _new_dir
         # run the fuzzer
         cmd = [self.path]
         if corpus_dir is not None:
@@ -219,16 +231,25 @@ class Clang(Compiler):
         self.cxx = cxx
         self.cxxflags = cxxflags
 
-    def compile(self, srcfile: str, _outpath: str | None = None) -> LibFuzzer:
+    def compile(
+        self,
+        srcfile: str,
+        _workdir: str | None = None,
+        _outpath: str | None = None,
+    ) -> LibFuzzer:
         """Compile the given harness to fuzzer object.
         Args:
             srcfile: a path to the source code file.
-            _outpath: a path to the compiled binary, use `{srcfile}.out` if it is not provided.
+            _workdir: a path to the working directory, use `{os.path.splitext(srcfile)[0]}` if it is not provided
+            _outpath: a path to the compiled binary, use `{_workdir}/{os.path.basename(srcfile)}.out` if it is not provided.
         Returns:
             fuzzer object.
         """
+        if _workdir is None:
+            _workdir, _ = os.path.splitext(srcfile)
+        os.makedirs(_workdir, exist_ok=True)
         _include_args = [arg for path in self.include_dir for arg in ("-I", path)]
-        executable = _outpath or f"{srcfile}.out"
+        executable = _outpath or f"{_workdir}/{os.path.basename(srcfile)}.out"
         output = subprocess.run(
             [
                 self.cxx,
@@ -250,4 +271,4 @@ class Clang(Compiler):
                 f"{self.cxx} returned non-zero exit status:\n{stderr}"
             ) from e
 
-        return LibFuzzer(executable, self.libpath)
+        return LibFuzzer(executable, self.libpath, _workdir=_workdir)
