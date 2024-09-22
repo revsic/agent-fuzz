@@ -190,8 +190,22 @@ class LibFuzzer(Fuzzer):
             raise RuntimeError(
                 f"failed to parse the lcov-format coverate data from profile `{_merged}`"
             ) from e
-
-        return Coverage(cov)
+        # pack to coverage
+        packed = Coverage()
+        for filelevel in cov.values():
+            packed.merge(
+                Coverage(
+                    {
+                        fn: {
+                            f"L{lineno}#({blockno}, {branchno})": hit or 0
+                            for lineno, branches in info["branches"].items()
+                            for (blockno, branchno), hit in branches.items()
+                        }
+                        for fn, info in filelevel["functions"].items()
+                    }
+                )
+            )
+        return packed
 
 
 _CXXFLAGS = [

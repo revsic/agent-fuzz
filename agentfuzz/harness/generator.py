@@ -48,11 +48,8 @@ class Trial(_Serializable):
 
 
 @dataclass
-class Covered(_Serializable):
+class Covered(Coverage, _Serializable):
     pass
-
-    def merge(self, cov: Coverage):
-        pass
 
 
 class HarnessGenerator:
@@ -158,7 +155,7 @@ class HarnessGenerator:
 
             trial.trial += 1
             self.logger.log(f"Trial: {trial.trial}")
-            apis = api_mutator.select(*config.comblen)
+            apis = api_mutator.select(covered, *config.comblen)
             self.logger.log(
                 f"  APICombMutator.select: {json.dumps([g.signature() for g in apis], ensure_ascii=False)}"
             )
@@ -234,9 +231,8 @@ class HarnessGenerator:
             self.logger.log(f"  Success to fuzz the code")
 
             cov = fuzzer.coverage()
-            # feedback to api mutator
+            # merge the coverage
             covered.merge(cov)
-            api_mutator.feedback(cov)
             # check the harness validity
             if (invalid := self._check_validity(path, retn, cov)) is not None:
                 trial.failure_validity += 1
