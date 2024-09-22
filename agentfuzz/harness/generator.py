@@ -140,7 +140,8 @@ class HarnessGenerator:
             covered = Covered.load(latest["coverage"])
             api_mutator = APICombMutator.load(latest["mutator-api"])
         else:
-            trial, covered, api_mutator = Trial(), Covered(), APICombMutator(targets)
+            trial, api_mutator = Trial(), APICombMutator(targets)
+            covered = Covered({api.name: {} for api in targets})
         while True:
             # save the latest state
             with open(_latest, "w") as f:

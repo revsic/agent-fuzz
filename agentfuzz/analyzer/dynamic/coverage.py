@@ -13,9 +13,11 @@ class Coverage:
         Returns:
             branch coverage.
         """
-        if fn not in self.functions:
+        if fn not in self.functions or len(self.functions[fn]) == 0:
             return None
-        return sum(hit > 0 for hit in self.functions[fn].values()) / len(self.functions[fn])
+        return sum(hit > 0 for hit in self.functions[fn].values()) / len(
+            self.functions[fn]
+        )
 
     def merge(self, other: "Coverage"):
         """Merge with the other one.
