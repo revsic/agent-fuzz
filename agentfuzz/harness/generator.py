@@ -2,7 +2,7 @@ import json
 import os
 import random
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from uuid import uuid4
 
 from agentfuzz.analyzer import Coverage, Factory, Fuzzer
@@ -22,6 +22,26 @@ class Trial:
     failure_validity: int = 0
     success: int = 0
     converged: bool = False
+
+    def dump(self) -> dict:
+        """Serialize the states into the single dictionary.
+        Returns:
+            the states of `Trial`.
+        """
+        return asdict(self)
+
+    @classmethod
+    def load(cls, dumps: str | dict) -> "Trial":
+        """Load from the dumps.
+        Args:
+            dumps: the dumpated states from the method `Trial.dump`.
+        Returns:
+            loaded states of `Trials`.
+        """
+        if isinstance(dumps, str):
+            with open(dumps):
+                dumps = json.load(dumps)
+        return cls(**dumps)
 
 
 class HarnessGenerator:
@@ -56,9 +76,8 @@ class HarnessGenerator:
             prompt = PROMPT_SUPPORTS[prompt]
         self.prompt = prompt
         self.logger = logger or self.DEFAULT_LOGGER
-        # log the trials
-        self.trial = Trial()
         # working directories
+        self._dir_state = os.path.join(self.workdir, "state")
         self._dir_work = os.path.join(self.workdir, "work")
         self._dir_harness = os.path.join(self.workdir, "harness")
         self._dir_failure_parse = os.path.join(
@@ -71,6 +90,7 @@ class HarnessGenerator:
             self.workdir, "exceptions", "failure_fuzzer"
         )
         self._working_dirs = [
+            self._dir_state,
             self._dir_work,
             self._dir_harness,
             self._dir_failure_parse,
@@ -80,8 +100,11 @@ class HarnessGenerator:
         # TODO: temporal agent
         self._default_agent = Agent(_stack=["HarnessGenerator"])
 
-    def run(self):
-        """Generate the harenss and fuzzing."""
+    def run(self, load_from_state: bool = True):
+        """Generate the harenss and fuzzing.
+        Args:
+            load_from_state: load from the previous state if it is True.
+        """
         # shortcut
         config = self.factory.config
         # construct the work directory
@@ -90,15 +113,21 @@ class HarnessGenerator:
         # listup the apis and types
         targets, types = self.factory.listup_apis(), self.factory.listup_types()
         # construct mutator
-        api_mutator = APICombMutator(targets)
+        if load_from_state:
+            trial = Trial.load(os.path.join(self._dir_state, "latest-trial.json"))
+            api_mutator = APICombMutator.load(
+                os.path.join(self._dir_state, "latest-apimutator.json")
+            )
+        else:
+            trial, api_mutator = Trial(), APICombMutator(targets)
         while True:
-            if self.trial.converged or api_mutator.converge():
-                self.trial.converged = True
+            if trial.converged or api_mutator.converge():
+                trial.converged = True
                 self.logger.log(f"Generation converged")
                 break
 
-            self.trial.trial += 1
-            self.logger.log(f"Trial: {self.trial.trial}")
+            trial.trial += 1
+            self.logger.log(f"Trial: {trial.trial}")
             apis = api_mutator.select(*config.comblen)
             self.logger.log(
                 f"  APICombMutator.select: {json.dumps([g.signature() for g in apis], ensure_ascii=False)}"
@@ -122,13 +151,13 @@ class HarnessGenerator:
             # generate the harness w/LLM
             result = self._default_agent.run(config.llm, prompt)
             if result.error:
-                self.trial.failure_agent += 1
+                trial.failure_agent += 1
                 self.logger.log(f"  Failed to generate the harness: {result.error}")
                 break
             # parse the code segment
             code = self._parse_code(result.response)
             if code is None:
-                self.trial.failure_parse += 1
+                trial.failure_parse += 1
                 uid = uuid4().hex
                 with open(os.path.join(self._dir_failure_parse, uid), "w") as f:
                     f.write(result.response)
@@ -137,7 +166,7 @@ class HarnessGenerator:
             # unpack
             _ext, code = code
             # write to the work directory
-            filename = f"{self.trial.trial}.{config.ext}".rstrip(".")
+            filename = f"{trial.trial}.{config.ext}".rstrip(".")
             path = os.path.join(self._dir_work, filename)
             with open(path, "w") as f:
                 f.write(code)
@@ -150,7 +179,7 @@ class HarnessGenerator:
                 uid = uuid4().hex
                 with open(os.path.join(self._dir_failure_compile, uid), "w") as f:
                     f.write(traceback.format_exc())
-                self.trial.failure_compile += 1
+                trial.failure_compile += 1
                 self.logger.log(
                     f"  Failed to compile the harness: {e} (written as {uid})"
                 )
@@ -168,7 +197,7 @@ class HarnessGenerator:
                 uid = uuid4().hex
                 with open(os.path.join(self._dir_failure_fuzzer, uid), "w") as f:
                     f.write(traceback.format_exc())
-                self.trial.failure_fuzzer += 1
+                trial.failure_fuzzer += 1
                 self.logger.log(f"  Failed to run the fuzzer: {e} (written as {uid})")
                 break
 
@@ -177,13 +206,13 @@ class HarnessGenerator:
             api_mutator.feedback(cov)
             # check the harness validity
             if (invalid := self._check_validity(path, retn, cov)) is None:
-                self.trial.failure_validity += 1
+                trial.failure_validity += 1
                 self.logger.log(f"  Invalid harness: {invalid}")
                 break
 
             with open(os.path.join(self.workdir, "harness", filename), "w") as f:
                 f.write(code)
-            self.trial.success += 1
+            trial.success += 1
             self.logger.log(
                 f"Success to generate the harness, written in harness/{filename}"
             )

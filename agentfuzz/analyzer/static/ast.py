@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import types
+from dataclasses import dataclass, asdict
 
 
 @dataclass
@@ -7,10 +8,33 @@ class APIGadget:
     return_type: str
     arguments: list[tuple[str | None, str]]
     _meta: dict
+    _dumped_signature: str | None = None
 
     def signature(self) -> str:
         """Render the gadget into a single declaration."""
         raise NotImplementedError("APIGadget.signature is not implemented.")
+
+    def dump(self) -> dict:
+        """Dump the gadget into the json-serializable object."""
+        dumped = asdict(self)
+        dumped["_dumped_signature"] = self.signature()
+        return dumped
+
+    @classmethod
+    def load(cls, dumped: dict) -> "APIGadget":
+        """Load the dumped object."""
+        loaded = cls(**dumped)
+        # backup the signature
+        sign = loaded.signature
+
+        def _hook_signature(self: APIGadget) -> str:
+            if self._dumped_signature is not None:
+                return self._dumped_signature
+            return sign()
+
+        # hook
+        loaded.signature = types.MethodType(_hook_signature, loaded)
+        return loaded
 
 
 @dataclass
