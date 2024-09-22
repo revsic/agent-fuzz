@@ -219,7 +219,7 @@ class HarnessGenerator:
             # feedback to api mutator
             api_mutator.feedback(cov)
             # check the harness validity
-            if (invalid := self._check_validity(path, retn, cov)) is None:
+            if (invalid := self._check_validity(path, retn, cov)) is not None:
                 trial.failure_validity += 1
                 self.logger.log(f"  Invalid harness: {invalid}")
                 break
