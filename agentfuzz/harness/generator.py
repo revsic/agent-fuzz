@@ -238,14 +238,16 @@ class HarnessGenerator:
                 trial.failure_validity += 1
                 self.logger.log(f"  Invalid harness: {invalid}")
                 break
-
-            with open(os.path.join(self.workdir, "harness", filename), "w") as f:
+            # on success
+            path = os.path.join(self._dir_harness, filename)
+            with open(path, "w") as f:
                 f.write(code)
             trial.success += 1
+            self.append_seeds(path)
             self.logger.log(
                 f"Success to generate the harness, written in harness/{filename}"
             )
-
+            # stop condition check
             if (
                 trial.converged
                 or self.trial_converge(trial, covered)
