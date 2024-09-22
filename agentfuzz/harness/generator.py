@@ -4,13 +4,18 @@ import random
 from agentfuzz.analyzer import Coverage, Factory
 from agentfuzz.harness.agent import Agent
 from agentfuzz.harness.mutation.api import APICombMutator
-from agentfuzz.harness.prompt.baseline import prompt_baseline
+from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRenderer
 
 
 class HarnessGenerator:
     """LLM Agent-based Harenss generation and fuzzing."""
 
-    def __init__(self, factory: Factory, workdir: str | None = None):
+    def __init__(
+        self,
+        factory: Factory,
+        workdir: str | None = None,
+        prompt: str | PromptRenderer = BaselinePrompt(),
+    ):
         """Initialize the harness generator.
         Args:
             factory: a project analyzer.
@@ -19,6 +24,12 @@ class HarnessGenerator:
         """
         self.factory = factory
         self.workdir = workdir or factory.workdir
+        if isinstance(prompt, str):
+            assert (
+                prompt in PROMPT_SUPPORTS
+            ), f"invalid prompt name `{prompt}`, supports only `{', '.join(PROMPT_SUPPORTS)}`"
+            prompt = PROMPT_SUPPORTS[prompt]
+        self.prompt = prompt
         self._default_agent = Agent(_stack=["HarnessGenerator"])
 
     def run(self):
@@ -36,7 +47,7 @@ class HarnessGenerator:
         while True:
             apis = api_mutator.select(*config.comblen)
             # construct the prompt
-            prompt = prompt_baseline(
+            prompt = self.prompt.render(
                 project=config.name,
                 headers=[],  # TODO: Retrieve the system headers/imports
                 apis=(

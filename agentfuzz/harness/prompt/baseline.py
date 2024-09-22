@@ -1,29 +1,8 @@
 from agentfuzz.analyzer import APIGadget, TypeGadget
+from agentfuzz.harness.prompt.renderer import PromptRenderer
 
 
-def parse_md(contents: str, sep: str = "#####", **kwargs) -> list[dict[str, str]]:
-    """Parse the markdown-format instruction prompts.
-    Args:
-        contents: markdown-format instruction prompts.
-        sep: turn-seperator.
-        kwargs: placeholder and their values for reducing the instruction prompt template.
-    Returns:
-        OpenAI-format chat conversation history.
-    """
-    messages = []
-    for turn in contents.split(sep):
-        if turn.strip() == "":
-            continue
-        role, *inst = turn.split("\n")
-        inst = "\n".join(inst).strip()
-        # reduce
-        for key, value in kwargs.items():
-            inst = inst.replace("{{" + key.upper() + "}}", value)
-        messages.append({"role": role.strip(), "content": inst})
-    return messages
-
-
-_MARKDOWN = """
+_BASELINE_MD = """
 ##### system
 Act as a C++ langauge Developer, write a fuzz driver that follow user's instructions.
 The prototype of fuzz dirver is: `extern "C" int LLVMFuzzerTestOneInput(const uint8_t data, size_t size)`.
@@ -58,38 +37,35 @@ Create a C++ language program step by step by using {{PROJECT}} library APIs and
 """
 
 
-def _render_gadget(
-    apis: str | list[APIGadget | TypeGadget | str], sep: str = "\n"
-) -> str:
-    if isinstance(apis, str):
-        return apis
-    return sep.join(api if isinstance(api, str) else api.signature() for api in apis)
+class BaselinePrompt(PromptRenderer):
+    """Baseline prompt from PromptFuzz[arXiv:2312.17677]"""
 
+    def __init__(self, markdown: str = _BASELINE_MD):
+        super().__init__(markdown, sep="#####")
 
-def prompt_baseline(
-    project: str,
-    headers: str | list[str],
-    apis: str | list[APIGadget | str],
-    types: str | list[TypeGadget | str],
-    combinations: str | list[APIGadget | str],
-):
-    """Construct the baseline prompt, reference from promptfuzz.
-    Args:
-        project: the name of the current project, e.g. cJSON, libpcap, etc.
-        headers: a list of system headers which is contained by the project.
-        apis: a list of apis that llm can reference.
-        types: a list of types that llm can reference, may contains the user-defined types.
-        combinations: a list of apis that harness should consist of.
-    """
-    return parse_md(
-        _MARKDOWN,
-        # reducing template
-        project=project,  # {{PROJECT}}
-        headers=(
-            headers if isinstance(headers, str) else "\n".join(headers)
-        ),  # {{HEADERS}}
-        apis=_render_gadget(apis),  # {{APIS}}
-        context=_render_gadget(types),  # {{CONTEXT}}
-        combinations="    "
-        + _render_gadget(combinations, sep=",\n    "),  # {{COMBINATIONS}}
-    )
+    def render(
+        self,
+        project: str,
+        headers: str | list[str],
+        apis: str | list[APIGadget | str],
+        types: str | list[TypeGadget | str],
+        combinations: str | list[APIGadget | str],
+    ):
+        """Construct the baseline prompt, reference from promptfuzz.
+        Args:
+            project: the name of the current project, e.g. cJSON, libpcap, etc.
+            headers: a list of system headers which is contained by the project.
+            apis: a list of apis that llm can reference.
+            types: a list of types that llm can reference, may contains the user-defined types.
+            combinations: a list of apis that harness should consist of.
+        """
+        return super().render(
+            project=project,  # {{PROJECT}}
+            headers=(
+                headers if isinstance(headers, str) else "\n".join(headers)
+            ),  # {{HEADERS}}
+            apis=self._render_gadget(apis),  # {{APIS}}
+            context=self._render_gadget(types),  # {{CONTEXT}}
+            combinations="    "
+            + self._render_gadget(combinations, sep=",\n    "),  # {{COMBINATIONS}}
+        )
