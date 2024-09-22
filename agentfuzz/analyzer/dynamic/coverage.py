@@ -15,7 +15,7 @@ class Coverage:
         """
         if fn not in self.functions:
             return None
-        return sum(hit > 0 for hit in self.functions[fn]) / len(self.functions[fn])
+        return sum(hit > 0 for hit in self.functions[fn].values()) / len(self.functions[fn])
 
     def merge(self, other: "Coverage"):
         """Merge with the other one.

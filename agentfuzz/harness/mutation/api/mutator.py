@@ -146,12 +146,12 @@ class APICombMutator:
             the list of mutated seeds
         """
         gadgets = self._sample_apis_from_seeds(energies)
-        match random.randint(3):
+        match random.randint(0, 2):
             case 0:  # insert
-                return self._insert(gadgets, maxlen, _changes)
+                return self._insert(gadgets, energies, maxlen, _changes)
             case 1:  # replace
                 gadgets = self._remove(gadgets, _changes)
-                return self._insert(gadgets, maxlen, _changes)
+                return self._insert(gadgets, energies, maxlen, _changes)
             case 2:  # crossover
                 other = self._sample_apis_from_seeds(energies)
                 return self._crossover(gadgets, other, _changes)
@@ -168,7 +168,7 @@ class APICombMutator:
             for gadget, energy in zip(self.gadgets, energies)
         }
         (seed,) = random.choices(
-            self.seeds,
+            list(self.seeds),
             [q["quality"] for q in self.seeds.values()],
             k=1,
         )
@@ -209,7 +209,7 @@ class APICombMutator:
             if gadget.signature() in _cache:
                 continue
             _cache.add(gadget.signature())
-            gadgets.insert(random.randint(len(gadgets)), gadget)
+            gadgets.insert(random.randint(0, len(gadgets)), gadget)
             k -= 1
         return gadgets
 
@@ -250,11 +250,11 @@ class APICombMutator:
             return gadgets + other
         # if shorter one is shorter than k
         if len(other) < k:
-            i = random.randint(len(gadgets) - len(other))
+            i = random.randint(0, len(gadgets) - len(other) - 1)
             return gadgets[:i] + other + gadgets[i + len(other) :]
         # if both are longer than k
-        i = random.randint(len(gadgets) - k)
-        j = random.randint(len(other) - k)
+        i = random.randint(0, len(gadgets) - k - 1)
+        j = random.randint(0, len(other) - k - 1)
         return gadgets[:i] + other[j : j + k] + gadgets[i + k :]
 
     def _energy(self, coverage: Coverage) -> list[float]:
