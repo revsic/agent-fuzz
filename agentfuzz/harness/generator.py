@@ -1,26 +1,51 @@
+import json
 import os
 import random
+import traceback
+from dataclasses import dataclass
+from uuid import uuid4
 
-from agentfuzz.analyzer import Coverage, Factory
+from agentfuzz.analyzer import Coverage, Factory, Fuzzer
 from agentfuzz.harness.agent import Agent
 from agentfuzz.harness.mutation.api import APICombMutator
 from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRenderer
+from agentfuzz.logger import Logger
+
+
+@dataclass
+class Trial:
+    trial: int = 0
+    failure_agent: int = 0
+    failure_parse: int = 0
+    failure_compile: int = 0
+    failure_fuzzer: int = 0
+    failure_validity: int = 0
+    success: int = 0
+    converged: bool = False
 
 
 class HarnessGenerator:
     """LLM Agent-based Harenss generation and fuzzing."""
+
+    DEFAULT_LOGGER = Logger(
+        os.environ.get("AGENTFUZZ_LOG_GENERATOR", "harness-gen.log"),
+        verbose=True,
+    )
 
     def __init__(
         self,
         factory: Factory,
         workdir: str | None = None,
         prompt: str | PromptRenderer = BaselinePrompt(),
+        logger: Logger | None = None,
     ):
         """Initialize the harness generator.
         Args:
             factory: a project analyzer.
             workdir: a path to the working directory for harness generation pipeline.
                 use `factory.workdir` if it is not provided.
+            prompt: a prompt renderer for requesting a harness generation to the LLM.
+            logger: a logger for harness generation, use `HarnessGenerator.DEFAULT_LOGGER` if it is not provided.
         """
         self.factory = factory
         self.workdir = workdir or factory.workdir
@@ -30,6 +55,29 @@ class HarnessGenerator:
             ), f"invalid prompt name `{prompt}`, supports only `{', '.join(PROMPT_SUPPORTS)}`"
             prompt = PROMPT_SUPPORTS[prompt]
         self.prompt = prompt
+        self.logger = logger or self.DEFAULT_LOGGER
+        # log the trials
+        self.trial = Trial()
+        # working directories
+        self._dir_work = os.path.join(self.workdir, "work")
+        self._dir_harness = os.path.join(self.workdir, "harness")
+        self._dir_failure_parse = os.path.join(
+            self.workdir, "exceptions", "failure_parse"
+        )
+        self._dir_failure_compile = os.path.join(
+            self.workdir, "exceptions", "failure_compile"
+        )
+        self._dir_failure_fuzzer = os.path.join(
+            self.workdir, "exceptions", "failure_fuzzer"
+        )
+        self._working_dirs = [
+            self._dir_work,
+            self._dir_harness,
+            self._dir_failure_parse,
+            self._dir_failure_compile,
+            self._dir_failure_fuzzer,
+        ]
+        # TODO: temporal agent
         self._default_agent = Agent(_stack=["HarnessGenerator"])
 
     def run(self):
@@ -37,15 +85,24 @@ class HarnessGenerator:
         # shortcut
         config = self.factory.config
         # construct the work directory
-        os.makedirs(os.path.join(self.workdir, "work"), exist_ok=True)
-        os.makedirs(os.path.join(self.workdir, "harness"), exist_ok=True)
-        seeds = 0
+        for dir_ in self._working_dirs:
+            os.makedirs(dir_, exist_ok=True)
         # listup the apis and types
         targets, types = self.factory.listup_apis(), self.factory.listup_types()
         # construct mutator
         api_mutator = APICombMutator(targets)
         while True:
+            if self.trial.converged or api_mutator.converge():
+                self.trial.converged = True
+                self.logger.log(f"Generation converged")
+                break
+
+            self.trial.trial += 1
+            self.logger.log(f"Trial: {self.trial.trial}")
             apis = api_mutator.select(*config.comblen)
+            self.logger.log(
+                f"  APICombMutator.select: {json.dumps([g.signature() for g in apis], ensure_ascii=False)}"
+            )
             # construct the prompt
             prompt = self.prompt.render(
                 project=config.name,
@@ -65,43 +122,71 @@ class HarnessGenerator:
             # generate the harness w/LLM
             result = self._default_agent.run(config.llm, prompt)
             if result.error:
+                self.trial.failure_agent += 1
+                self.logger.log(f"  Failed to generate the harness: {result.error}")
                 break
             # parse the code segment
             code = self._parse_code(result.response)
             if code is None:
+                self.trial.failure_parse += 1
+                uid = uuid4().hex
+                with open(os.path.join(self._dir_failure_parse, uid), "w") as f:
+                    f.write(result.response)
+                self.logger.log(f"  Failed to parse the code (written as {uid})")
                 continue
             # unpack
             _ext, code = code
             # write to the work directory
-            seeds += 1
-            filename = f"{seeds}.{config.ext}".rstrip(".")
-            path = os.path.join(self.workdir, "work", filename)
+            filename = f"{self.trial.trial}.{config.ext}".rstrip(".")
+            path = os.path.join(self._dir_work, filename)
             with open(path, "w") as f:
                 f.write(code)
+            self.logger.log(f"  Success to parse the code: work/{filename}")
             # check the validity in runtime
+            fuzzer: Fuzzer
             try:
                 fuzzer = self.factory.compiler.compile(path)
+            except Exception as e:
+                uid = uuid4().hex
+                with open(os.path.join(self._dir_failure_compile, uid), "w") as f:
+                    f.write(traceback.format_exc())
+                self.trial.failure_compile += 1
+                self.logger.log(
+                    f"  Failed to compile the harness: {e} (written as {uid})"
+                )
+                break
+
+            retn: int | None | Exception
+            try:
                 retn = fuzzer.run(
                     config.corpus_dir,
                     config.fuzzdict,
                     wait_until_done=True,
                     timeout=config.timeout,
                 )
-                cov = fuzzer.coverage()
-                # feedback to api mutator
-                api_mutator.feedback(cov)
-                # check the harness validity
-                if self._valid(path, retn, cov):
-                    with open(
-                        os.path.join(self.workdir, "harness", filename), "w"
-                    ) as f:
-                        f.write(code)
             except Exception as e:
-                # TODO: write the log
-                continue
-
-            if api_mutator.converge():
+                uid = uuid4().hex
+                with open(os.path.join(self._dir_failure_fuzzer, uid), "w") as f:
+                    f.write(traceback.format_exc())
+                self.trial.failure_fuzzer += 1
+                self.logger.log(f"  Failed to run the fuzzer: {e} (written as {uid})")
                 break
+
+            cov = fuzzer.coverage()
+            # feedback to api mutator
+            api_mutator.feedback(cov)
+            # check the harness validity
+            if (invalid := self._check_validity(path, retn, cov)) is None:
+                self.trial.failure_validity += 1
+                self.logger.log(f"  Invalid harness: {invalid}")
+                break
+
+            with open(os.path.join(self.workdir, "harness", filename), "w") as f:
+                f.write(code)
+            self.trial.success += 1
+            self.logger.log(
+                f"Success to generate the harness, written in harness/{filename}"
+            )
 
     def _choose(self, items: list, n: int) -> list:
         """Simple implementation of `np.random.choice`.
@@ -135,14 +220,16 @@ class HarnessGenerator:
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
 
-    def _valid(self, path: str, retn: int | None | Exception, cov: Coverage) -> bool:
+    def _check_validity(
+        self, path: str, retn: int | None | Exception, cov: Coverage
+    ) -> str | None:
         """Validate the harness.
         Args:
             path: a path to the harness source code.
             retn: a return code of the fuzzer compiled with the harness.
             cov: a coverage description about the fuzzer run.
         Returns:
-            True if the given harness is valid.
+            None if the given harness is valid, otherwise return the reason why the given harness is invalid.
         """
         # TODO: validate the harness
-        return True
+        return None
