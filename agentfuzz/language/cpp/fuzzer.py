@@ -35,6 +35,7 @@ class LibFuzzer(Fuzzer):
                 None if minimizing process is failed.
         """
         outdir = outdir or f"{corpus_dir}_min"
+        os.makedirs(outdir, exist_ok=True)
         run = subprocess.run([self.path, "-merge=1", outdir, corpus_dir])
         try:
             run.check_returncode()
