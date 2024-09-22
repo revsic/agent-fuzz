@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import shutil
 import traceback
 from dataclasses import dataclass, asdict
 from uuid import uuid4
@@ -58,6 +59,7 @@ class HarnessGenerator:
         workdir: str | None = None,
         prompt: str | PromptRenderer = BaselinePrompt(),
         logger: Logger | None = None,
+        _clear_previous_work: bool = False,
     ):
         """Initialize the harness generator.
         Args:
@@ -66,6 +68,7 @@ class HarnessGenerator:
                 use `factory.workdir` if it is not provided.
             prompt: a prompt renderer for requesting a harness generation to the LLM.
             logger: a logger for harness generation, use `HarnessGenerator.DEFAULT_LOGGER` if it is not provided.
+            _clear_previous_work: whether clear all previous works or not.
         """
         self.factory = factory
         self.workdir = workdir or factory.workdir
@@ -99,6 +102,15 @@ class HarnessGenerator:
         ]
         # TODO: temporal agent
         self._default_agent = Agent(_stack=["HarnessGenerator"])
+        # WARNING: all works could be deleted if the flag on
+        if _clear_previous_work:
+            for dir_ in self._working_dirs:
+                if not os.path.exists(dir_):
+                    continue
+                try:
+                    shutil.rmtree(dir_)
+                except:
+                    pass
 
     def run(self, load_from_state: bool = True):
         """Generate the harenss and fuzzing.

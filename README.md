@@ -85,5 +85,6 @@ Agentic Fuzz-driver generation
 - [ ] API scheduler
 - [ ] Fuzzer-run / harness-generation scheduler
 - [ ] Agentic fuzz-driver generation
+- [x] State load and dump supports
 
 ### Coverage feedback to fuzz-driver
