@@ -80,7 +80,7 @@ class CppSupports(LanguageSupports):
         )
 
     @classmethod
-    def from_yaml(cls, projdir: str, config: str):
+    def from_yaml(cls, projdir: str, config: str) -> LanguageSupports:
         """Construct project with the predefined configuration file.
         Args:
             projdir: a path to the project directory.

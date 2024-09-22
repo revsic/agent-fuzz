@@ -27,7 +27,7 @@ class LanguageSupports:
         self._Generator(self.factory, self.workdir).run()
 
     @classmethod
-    def from_yaml(cls, workdir: str, config: str):
+    def from_yaml(cls, workdir: str, config: str) -> "LanguageSupports":
         """Construct project with the predefined configuration file.
         Args:
             projdir: a path to the project directory.
