@@ -292,9 +292,20 @@ class ClangASTParser(ASTParser):
         ir = os.path.join(_temp, "ir.ll")
         try:
             # transform C/C++ source to LLVM IR
-            subprocess.run([clang, "-S", "-emit-llvm", source, "-o", ir], check=True)
+            subprocess.run(
+                [clang, "-S", "-emit-llvm", source, "-o", ir],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             # extract the control-flow graph from the IR
-            subprocess.run(["opt", ir, "-p", "dot-cfg"], cwd=_temp, check=True)
+            subprocess.run(
+                ["opt", ir, "-p", "dot-cfg"],
+                cwd=_temp,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             if target is None:
                 target = [
                     os.path.join(_temp, filename)
@@ -304,7 +315,10 @@ class ClangASTParser(ASTParser):
             # serialize it into a json
             for path in target:
                 subprocess.run(
-                    ["dot", "-Txdot_json", path, "-o", f"{path}.json"], check=True
+                    ["dot", "-Txdot_json", path, "-o", f"{path}.json"],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
         except subprocess.CalledProcessError as e:
             return {"error": e, "_traceback": traceback.format_exc()}
