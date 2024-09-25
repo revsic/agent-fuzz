@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import traceback
 
 from agentfuzz.analyzer.static.ast import APIGadget, ASTParser, TypeGadget
@@ -40,11 +41,15 @@ class CStyleTypeGadget(TypeGadget):
 class ClangASTParser(ASTParser):
     """Clang AST-based static analysis supports."""
 
-    def __init__(self, include_dir: list[str] = [], _max_cache: int = 500):
+    def __init__(
+        self, clang: int = "clang++", include_dir: list[str] = [], _max_cache: int = 500
+    ):
         """Preare the clang ast parser.
         Args:
+            clang: a path to the clang compiler.
             include_dir: a list of paths to the directories for `#incldue` preprocessor.
         """
+        self.clang = clang
         self.include_dir = include_dir
         # for dumping cache
         self._ast_caches = {}
@@ -196,7 +201,7 @@ class ClangASTParser(ASTParser):
         if _key in self._ast_caches:
             return self._ast_caches[_key]
         # dump the ast
-        dumped = self._run_ast_dump(source, self.include_dir)
+        dumped = self._run_ast_dump(source, self.clang, self.include_dir)
         if len(self._ast_caches) > self._max_cache:
             # FIFO
             self._ast_caches = dict(list(self._ast_caches.items())[1:])
@@ -205,10 +210,13 @@ class ClangASTParser(ASTParser):
         return dumped
 
     @classmethod
-    def _run_ast_dump(cls, source: str, include_dir: list[str] = []):
+    def _run_ast_dump(
+        cls, source: str, clang: str = "clang++", include_dir: list[str] = []
+    ):
         """Run the clang with ast-dump options.
         Args:
             source: a path to the target source file.
+            clang:
             include_dir: a list of paths to the directories for `#include` preprocessor.
         Returns:
             dumped abstract syntax tree.
@@ -217,7 +225,7 @@ class ClangASTParser(ASTParser):
 
         proc = subprocess.run(
             [
-                "clang++",
+                clang,
                 "-fsyntax-only",
                 "-Xclang",
                 "-ast-dump=json",

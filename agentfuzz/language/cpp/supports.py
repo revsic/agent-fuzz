@@ -22,10 +22,10 @@ class CppConfig(Config):
     links: list[str] = field(default_factory=list)
     # a path to the directory for preprocessing `#include` macro.
     include_dir: list[str] = field(default_factory=list)
-    # a path to the clang++ compiler.
-    cxx: str = "clang++"
+    # a path to the clang compiler.
+    clang: str = "clang++"
     # additional compiler arguments.
-    cxxflags: list[str] = field(default_factory=lambda: [*_CXXFLAGS])
+    flags: list[str] = field(default_factory=lambda: [*_CXXFLAGS])
 
     def __post_init__(self):
         assert self.libpath is not None, "libpath should be provided"
@@ -67,13 +67,13 @@ class CppSupports(LanguageSupports):
             factory=self._Factory(
                 workdir,
                 config,
-                ClangASTParser(include_dir=config.include_dir),
+                ClangASTParser(clang=config.clang, include_dir=config.include_dir),
                 Clang(
                     libpath=config.libpath,
                     links=config.links,
                     include_dir=config.include_dir,
-                    cxx=config.cxx,
-                    cxxflags=config.cxxflags,
+                    clang=config.clang,
+                    flags=config.flags,
                 ),
             ),
         )

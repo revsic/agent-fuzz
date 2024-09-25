@@ -227,22 +227,22 @@ class Clang(Compiler):
         libpath: str,
         links: list[str] = [],
         include_dir: list[str] = [],
-        cxx: str = "clang++",
-        cxxflags: list[str] = _CXXFLAGS,
+        clang: str = "clang++",
+        flags: list[str] = _CXXFLAGS,
     ):
         """Prepare for the compile.
         Args:
             libpath: a path to the library path.
             links: additional libraries to link.
             include_dir: a list of paths to the directory for preprocessing #include macro.
-            cxx: a path to the clang++ compiler.
-            cxxflags: additional compiler arguments.
+            clang: a path to the clang compiler.
+            flags: additional compiler arguments.
         """
         self.libpath = libpath
         self.links = links
         self.include_dir = include_dir
-        self.cxx = cxx
-        self.cxxflags = cxxflags
+        self.clang = clang
+        self.flags = flags
 
     def compile(
         self,
@@ -265,8 +265,8 @@ class Clang(Compiler):
         executable = _outpath or f"{_workdir}/{os.path.basename(srcfile)}.out"
         output = subprocess.run(
             [
-                self.cxx,
-                *self.cxxflags,
+                self.clang,
+                *self.flags,
                 srcfile,
                 *_include_args,
                 "-o",  # specifying the output path
@@ -281,7 +281,7 @@ class Clang(Compiler):
         except subprocess.CalledProcessError as e:
             stderr = output.stderr.decode("utf-8")
             raise RuntimeError(
-                f"{self.cxx} returned non-zero exit status:\n{stderr}"
+                f"{self.clang} returned non-zero exit status:\n{stderr}"
             ) from e
 
         return LibFuzzer(executable, self.libpath, _workdir=_workdir)
