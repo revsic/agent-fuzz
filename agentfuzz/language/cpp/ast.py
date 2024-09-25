@@ -53,6 +53,7 @@ class ClangASTParser(ASTParser):
         self.include_dir = include_dir
         # for dumping cache
         self._ast_caches = {}
+        self._cfg_caches = {}
         self._max_cache = _max_cache
 
     def parse_type_gadget(self, source: str) -> CStyleTypeGadget:
@@ -160,6 +161,16 @@ class ClangASTParser(ASTParser):
             gadgets.append(gadget)
         return gadgets
 
+    def extract_critical_path(self, source: str) -> list[CStyleAPIGadget]:
+        """Extract the critical path from the source code.
+        Args:
+            source: a path to the source code file.
+        Returns:
+            a list of longest API gadgets possible to call by seed corpus.
+        """
+        cfg = self._extract_cfg(source)
+        nodes = {obj["_gvid"]: obj["label"] for obj in cfg["objects"]}
+
     def _parse_parenthesis(self, item: str) -> list[tuple[int, int]]:
         """Parse the parenthesis from the item for argument parser.
         Args:
@@ -209,6 +220,27 @@ class ClangASTParser(ASTParser):
         self._ast_caches[_key] = dumped
         return dumped
 
+    def _extract_cfg(self, source: str):
+        """Extract a control flow grpah from the given source code.
+        Args:
+            source: a path to the target source file.
+        Returns:
+            extracted control-flow graph.
+        """
+        with open(source) as f:
+            code = f.read()
+        _key = (source, code)
+        if _key in self._cfg_caches:
+            return self._cfg_caches[_key]
+        # extract cfg
+        extracted = self._run_cfg_dump(source, self.clang)
+        if len(self._cfg_caches) > self._max_cache:
+            # FIFO
+            self._cfg_caches = dict(list(self._cfg_caches.items())[1:])
+        # update
+        self._cfg_caches[_key] = extracted
+        return extracted
+
     @classmethod
     def _run_ast_dump(
         cls, source: str, clang: str = "clang++", include_dir: list[str] = []
@@ -245,7 +277,9 @@ class ClangASTParser(ASTParser):
             }
 
     @classmethod
-    def _run_cfg_dump(cls, source: str, clang: str = "clang++"):
+    def _run_cfg_dump(
+        cls, source: str, clang: str = "clang++", target: list[str] | None = None
+    ) -> list[dict]:
         """Run the clang for dump a control-flow graph.
         Args:
             source: a path to the target source file.
@@ -256,16 +290,29 @@ class ClangASTParser(ASTParser):
         # temporal paths
         _temp = tempfile.mkdtemp()
         ir = os.path.join(_temp, "ir.ll")
-        cfg = os.path.join(_temp, "cfg.json")
         try:
             # transform C/C++ source to LLVM IR
             subprocess.run([clang, "-S", "-emit-llvm", source, "-o", ir], check=True)
             # extract the control-flow graph from the IR
-            subprocess.run(["opt", ir, "-p", "dot-cfg"], check=True)
+            subprocess.run(["opt", ir, "-p", "dot-cfg"], cwd=_temp, check=True)
+            if target is None:
+                target = [
+                    os.path.join(_temp, filename)
+                    for filename in os.listdir(_temp)
+                    if filename.startswith(".") and filename.endswith(".dot")
+                ]
             # serialize it into a json
-            subprocess.run(["dot", "-Txdot_json", "-o", cfg], check=True)
+            for path in target:
+                subprocess.run(
+                    ["dot", "-Txdot_json", path, "-o", f"{path}.json"], check=True
+                )
         except subprocess.CalledProcessError as e:
             return {"error": e, "_traceback": traceback.format_exc()}
         # load json
-        with open(cfg) as f:
-            return json.load(f)
+        cfgs = {}
+        for path in target:
+            with open(f"{path}.json") as f:
+                loaded = json.load(f)
+            cfgs[os.path.basename(path)[1 : -len(".dot.json")]] = loaded
+
+        return cfgs
