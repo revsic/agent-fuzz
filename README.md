@@ -7,11 +7,13 @@ For mac
 ```bash
 brew install universal-ctags
 brew install global
+brew install llvm
+brew install graphviz
 ```
 
 For Ubuntu
 ```bash
-sudo apt-get install -y global universal-ctags
+sudo apt-get install -y global universal-ctags graphviz llvm
 ```
 
 Install the agentfuzz

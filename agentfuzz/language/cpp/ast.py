@@ -216,7 +216,7 @@ class ClangASTParser(ASTParser):
         """Run the clang with ast-dump options.
         Args:
             source: a path to the target source file.
-            clang:
+            clang: a path to the clang compiler.
             include_dir: a list of paths to the directories for `#include` preprocessor.
         Returns:
             dumped abstract syntax tree.
@@ -243,3 +243,29 @@ class ClangASTParser(ASTParser):
                 "_traceback": traceback.format_exc(),
                 "_stdout": ast,
             }
+
+    @classmethod
+    def _run_cfg_dump(cls, source: str, clang: str = "clang++"):
+        """Run the clang for dump a control-flow graph.
+        Args:
+            source: a path to the target source file.
+            clang: a path to the clang compiler.
+        Returns:
+            dumped control flow graph.
+        """
+        # temporal paths
+        _temp = tempfile.mkdtemp()
+        ir = os.path.join(_temp, "ir.ll")
+        cfg = os.path.join(_temp, "cfg.json")
+        try:
+            # transform C/C++ source to LLVM IR
+            subprocess.run([clang, "-S", "-emit-llvm", source, "-o", ir], check=True)
+            # extract the control-flow graph from the IR
+            subprocess.run(["opt", ir, "-p", "dot-cfg"], check=True)
+            # serialize it into a json
+            subprocess.run(["dot", "-Txdot_json", "-o", cfg], check=True)
+        except subprocess.CalledProcessError as e:
+            return {"error": e, "_traceback": traceback.format_exc()}
+        # load json
+        with open(cfg) as f:
+            return json.load(f)
