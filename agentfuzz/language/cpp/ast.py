@@ -165,8 +165,8 @@ class ClangASTParser(ASTParser):
     def extract_critical_path(
         self,
         source: str,
-        target: str = "LLVMFuzzerTestOneInput",
         gadgets: list[CStyleAPIGadget] | None = None,
+        target: str = "LLVMFuzzerTestOneInput",
     ) -> list[list[str | CStyleAPIGadget]]:
         """Extract the critical path from the source code.
         Args:

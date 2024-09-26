@@ -70,6 +70,19 @@ class ASTParser:
         """
         raise NotImplementedError("ASTParser.parse_api_gadget is not implemented")
 
+    def extract_critical_path(
+        self, source: str, gadgets: list[APIGadget]
+    ) -> list[list[str | APIGadget]]:
+        """Extract the ciritical path from the source code.
+        Args:
+            source: a path to the source code file.
+            gadgets: a list of interests, return only the apis involved in `gadgets` if provided.
+                returns the function name instead of gadgets if it is not provided.
+        Returns:
+            a list of longest API gadget sequences.
+        """
+        raise NotImplementedError("ASTParser.extract_critical_path is not implemented")
+
     def retrieve_type(
         self, api: APIGadget, types: list[TypeGadget]
     ) -> list[TypeGadget]:
