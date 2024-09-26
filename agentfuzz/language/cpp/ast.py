@@ -4,6 +4,7 @@ import re
 import subprocess
 import tempfile
 import traceback
+from typing import Callable
 
 from agentfuzz.analyzer.static.ast import APIGadget, ASTParser, TypeGadget
 
@@ -161,15 +162,104 @@ class ClangASTParser(ASTParser):
             gadgets.append(gadget)
         return gadgets
 
-    def extract_critical_path(self, source: str) -> list[CStyleAPIGadget]:
+    def extract_critical_path(
+        self,
+        source: str,
+        target: str = "LLVMFuzzerTestOneInput",
+        gadgets: list[CStyleAPIGadget] | None = None,
+    ) -> list[list[str | CStyleAPIGadget]]:
         """Extract the critical path from the source code.
         Args:
             source: a path to the source code file.
+            target: the specific function name to inspect.
+            gadgets: the list of intersts, return only the apis involved in `gadgets` if provided.
         Returns:
-            a list of longest API gadgets possible to call by seed corpus.
+            a list of longest API gadget sequences.
         """
-        cfg = self._extract_cfg(source)
-        nodes = {obj["_gvid"]: obj["label"] for obj in cfg["objects"]}
+        # extract the control flow graph
+        (cfg,) = self._extract_cfg(source, target=target).values()
+        # placeholder
+        gadget = None
+        # construct the graph
+        _call_stmt = re.compile(r"^(%\d+\s*=\s*)*call.+?@(.+?)\(.+$")
+        nodes = {
+            obj["_gvid"]: {
+                "body": [
+                    gadget or found
+                    # parse the IRs
+                    for ir in self._parse_dot_body(obj["label"])
+                    for _, found in _call_stmt.findall(ir)
+                    # name matching for C/C++ (exact or mangled)
+                    if gadgets is None
+                    or (gadget := self._find_gadget(found, gadgets or []))
+                ],
+                "next": [],
+            }
+            for obj in cfg["objects"]
+        }
+        for edge in cfg.get("edges", []):
+            nodes[edge["tail"]]["next"].append(edge["head"])
+        # find the path of the maximum length
+        stack = [([0], nodes[0]["body"])]
+        maxlen, maxapis = 0, []
+        while stack:
+            path, apis = stack.pop()
+            *_, last = path
+            # if end-of-code
+            if not nodes[last]["next"]:
+                # max length check
+                if len(apis) > maxlen:
+                    maxapis, maxlen = [apis], len(apis)
+                elif len(apis) == maxlen:
+                    maxapis.append(apis)
+                continue
+            # append without cycle
+            stack.extend(
+                [
+                    (path + [i], apis + nodes[i]["body"])
+                    for i in nodes[last]["next"]
+                    if i not in path
+                ]
+            )
+        return maxapis
+
+    def _parse_dot_body(self, body: str) -> list[str] | None:
+        """Parse the graphviz json-format dot-file into a list of LLVM IRs.
+        Args:
+            body: the given `label` from the json-format dot-file.
+        Returns:
+            a list of the LLVM IRs.
+        """
+        inner = re.findall(r"^\{(.+?)\}$", body)
+        if not inner:
+            return None
+        (body,) = inner
+        _, irs, *_ = body.split("|", maxsplit=2)
+        return [ir.strip() for ir in irs.strip("\\l").split("\\l")]
+
+    def _find_gadget(
+        self,
+        name: str,
+        gadgets: list[CStyleAPIGadget] | dict[str, CStyleAPIGadget],
+        mangled: Callable[[str], re.Pattern] = lambda i: re.compile(f"^_Z.*\\d+{i}"),
+    ) -> CStyleAPIGadget | None:
+        """Find the gadget w.r.t. the given name.
+        Args:
+            name: the name of the target API.
+            gadgets: a list of candidate gadgets.
+            mangled: the rule for find the gadget from the mangled API name.
+        Returns:
+            the found gadgets or None.
+        """
+        if isinstance(gadgets, list):
+            gadgets = {g.name: g for g in gadgets}
+        if name in gadgets:
+            return gadgets[name]
+        # if name is mangled
+        for gadget in gadgets.values():
+            if mangled(gadget.name).findall(name):
+                return gadget
+        return None
 
     def _parse_parenthesis(self, item: str) -> list[tuple[int, int]]:
         """Parse the parenthesis from the item for argument parser.
@@ -220,7 +310,9 @@ class ClangASTParser(ASTParser):
         self._ast_caches[_key] = dumped
         return dumped
 
-    def _extract_cfg(self, source: str, target: str | None = "LLVMFuzzerTestOneInput"):
+    def _extract_cfg(
+        self, source: str, target: str | None = "LLVMFuzzerTestOneInput"
+    ) -> dict[str, dict]:
         """Extract a control flow grpah from the given source code.
         Args:
             source: a path to the target source file.
@@ -280,7 +372,7 @@ class ClangASTParser(ASTParser):
     @classmethod
     def _run_cfg_dump(
         cls, source: str, clang: str = "clang++", target: str | None = None
-    ) -> list[dict]:
+    ) -> dict[str, dict]:
         """Run the clang for dump a control-flow graph.
         Args:
             source: a path to the target source file.

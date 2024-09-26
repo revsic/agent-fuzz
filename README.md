@@ -68,7 +68,7 @@ Static analysis
 - [x] Clang AST parser supports
 - [x] Collect API function/type gadgets
 - [ ] Infer input constraints 
-- [ ] Critical path extraction
+- [x] Critical path extraction
 
 Dynamic analysis
 
