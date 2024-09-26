@@ -27,8 +27,9 @@ class Config:
     llm: str = "gpt-4o-mini-2024-07-18"
     # file extension for the generated harness.
     ext: str = ""
-    # the maximum running time of harness generation-stage fuzzer, in seconds.
-    timeout: float = 300
+    # the maximum running time of fuzzer stage on harness generation, in seconds. (coverage-growth check)
+    timeout: float = 600
+    timeout_unit: float = 60
 
     @classmethod
     def load_from_yaml(cls, path: str):

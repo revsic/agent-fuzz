@@ -4,6 +4,7 @@ import random
 import shutil
 import traceback
 from dataclasses import dataclass, asdict
+from time import time
 from uuid import uuid4
 
 from agentfuzz.analyzer import Coverage, Factory, Fuzzer
@@ -42,7 +43,8 @@ class Trial(_Serializable):
     failure_parse: int = 0
     failure_compile: int = 0
     failure_fuzzer: int = 0
-    failure_validity: int = 0
+    failure_coverage: int = 0
+    failure_critical_path: int = 0
     success: int = 0
     converged: bool = False
 
@@ -129,14 +131,17 @@ class HarnessGenerator:
         # construct the work directory
         for dir_ in self._working_dirs:
             os.makedirs(dir_, exist_ok=True)
+
         # listup the apis and types
         targets, types = self.factory.listup_apis(), self.factory.listup_types()
+
         # construct mutator
         _latest = os.path.join(self._dir_state, "latest.json")
         if load_from_state and os.path.exists(_latest):
             trial, covered, api_mutator = self.load(_latest)
         else:
             trial, covered, api_mutator = Trial(), Covered(), APICombMutator(targets)
+
         while not trial.converged:
             # save the latest state
             self.dump(trial, covered, api_mutator, path=_latest)
@@ -147,6 +152,7 @@ class HarnessGenerator:
             self.logger.log(
                 f"  APICombMutator.select: {json.dumps([g.signature() for g in apis], ensure_ascii=False)}"
             )
+
             # construct the prompt
             prompt = self.prompt.render(
                 project=config.name,
@@ -163,12 +169,14 @@ class HarnessGenerator:
                 ],
                 combinations=apis,
             )
+
             # generate the harness w/LLM
             result = self._default_agent.run(config.llm, prompt)
             if result.error:
                 trial.failure_agent += 1
                 self.logger.log(f"  Failed to generate the harness: {result.error}")
                 break
+
             # parse the code segment
             code = self._parse_code(result.response)
             if code is None:
@@ -178,6 +186,7 @@ class HarnessGenerator:
                     f.write(result.response)
                 self.logger.log(f"  Failed to parse the code (written as {uid})")
                 continue
+
             # unpack
             _ext, code = code
             # write to the work directory
@@ -186,7 +195,9 @@ class HarnessGenerator:
             with open(path, "w") as f:
                 f.write(code)
             self.logger.log(f"  Success to parse the code: work/{filename}")
+
             # check the validity in runtime
+            ## 1. Compilability
             fuzzer: Fuzzer
             try:
                 fuzzer = self.factory.compiler.compile(path)
@@ -201,45 +212,73 @@ class HarnessGenerator:
                 continue
             self.logger.log(f"  Success to compile the code")
 
-            retn: int | None | Exception
-            try:
-                retn = fuzzer.run(
-                    config.corpus_dir,
-                    config.fuzzdict,
-                    wait_until_done=True,
-                    timeout=config.timeout,
+            ## 2. Coverage Growth
+            max_try = -(-config.timeout // config.timeout_unit)
+            cov, residual = Coverage(), config.timeout
+            for i in range(max_try):
+                self.logger.log(
+                    f"  {i}th fuzzer round ({i}/{max_try}, {residual:.2f}s rest)"
                 )
-            except Exception as e:
-                uid = uuid4().hex
-                with open(os.path.join(self._dir_failure_fuzzer, uid), "w") as f:
-                    f.write(traceback.format_exc())
-                trial.failure_fuzzer += 1
-                self.logger.log(f"  Failed to run the fuzzer: {e} (written as {uid})")
-                continue
+                retn: int | None | Exception
+                try:
+                    # runtime check for managing timeout
+                    start = time()
+                    # run the fuzzer
+                    retn = fuzzer.run(
+                        config.corpus_dir,
+                        config.fuzzdict,
+                        wait_until_done=True,
+                        timeout=min(config.timeout_unit, residual),
+                    )
+                    residual -= time() - start
+                    # merge coverage
+                    cov.merge(fuzzer.coverage())
+                    if not self._check_cov_growth(covered, cov):
+                        break
+                    # TODO: return code check
+                except Exception as e:
+                    uid = uuid4().hex
+                    with open(os.path.join(self._dir_failure_fuzzer, uid), "w") as f:
+                        f.write(traceback.format_exc())
+                    trial.failure_fuzzer += 1
+                    self.logger.log(
+                        f"  Failed to run the fuzzer: {e} (written as {uid})"
+                    )
+                    break
+
             self.logger.log(f"  Success to fuzz the code")
 
-            cov = fuzzer.coverage()
-            # merge the coverage
-            covered.merge(cov)
+            ## 3. Critcial Path Coverage
             # check the harness validity
-            if (invalid := self._check_validity(path, retn, cov)) is not None:
-                trial.failure_validity += 1
-                self.logger.log(f"  Invalid harness: {invalid}")
+            if not self._check_cov_growth(covered, cov):
+                trial.failure_coverage += 1
+                self.logger.log(f"  FP: Coverage did not grow")
                 break
+
+            if not self._check_critical_path(path, cov):
+                trial.failure_critical_path += 1
+                self.logger.log(f"  FP: Critical path did not hit")
+                break
+
             # on success
             path = os.path.join(self._dir_harness, filename)
             with open(path, "w") as f:
                 f.write(code)
+
             trial.success += 1
+            covered.merge(cov)
             api_mutator.append_seeds(path)
+
             self.logger.log(
                 f"Success to generate the harness, written in harness/{filename}"
             )
+
             # stop condition check
             if self.trial_converge(trial, covered) or api_mutator.converge():
                 trial.converged = True
                 self.logger.log(f"Generation converged")
                 break
+
         # save the last state
         self.dump(trial, covered, api_mutator, path=_latest)
 
@@ -309,19 +348,25 @@ class HarnessGenerator:
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
 
-    def _check_validity(
-        self, path: str, retn: int | None | Exception, cov: Coverage
-    ) -> str | None:
-        """Validate the harness.
+    def _check_cov_growth(self, covered: Covered, cov: Coverage) -> bool:
+        """Check whether the given fuzzer makes the global coverage grwoth.
+        Args:
+            covered: the global coverage descriptor.
+            cov: a coverage descriptor about the fuzzer run.
+        Returns:
+            True if given fuzzer hit the new unique branches.
+        """
+        return True
+
+    def _check_critical_path(self, path: str, cov: Coverage) -> bool:
+        """Check the given fuzzer hit the full critical path or not.
         Args:
             path: a path to the harness source code.
-            retn: a return code of the fuzzer compiled with the harness.
-            cov: a coverage description about the fuzzer run.
+            cov: a coverage descriptor about the fuzzer run.
         Returns:
-            None if the given harness is valid, otherwise return the reason why the given harness is invalid.
+            True if given fuzzer hit the full critical path.
         """
-        # TODO: validate the harness
-        return None
+        return True
 
     def trial_converge(self, trial: Trial, cov: Covered) -> bool:
         """Check the generation trial converge.
