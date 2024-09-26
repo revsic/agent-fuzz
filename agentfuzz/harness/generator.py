@@ -47,6 +47,7 @@ class Trial(_Serializable):
     failure_critical_path: int = 0
     success: int = 0
     converged: bool = False
+    cost: float = 0.
 
 
 @dataclass
@@ -142,9 +143,10 @@ class HarnessGenerator:
         else:
             trial, covered, api_mutator = Trial(), Covered(), APICombMutator(targets)
 
-        while not trial.converged:
+        while not trial.converged and trial.cost < config.quota:
             # save the latest state
             self.dump(trial, covered, api_mutator, path=_latest)
+            self._log_stats(trial, covered, config.quota)
 
             trial.trial += 1
             self.logger.log(f"Trial: {trial.trial}")
@@ -172,6 +174,7 @@ class HarnessGenerator:
 
             # generate the harness w/LLM
             result = self._default_agent.run(config.llm, prompt)
+            trial.cost += result.billing or 0.0
             if result.error:
                 trial.failure_agent += 1
                 self.logger.log(f"  Failed to generate the harness: {result.error}")
@@ -279,6 +282,7 @@ class HarnessGenerator:
                 self.logger.log(f"Generation converged")
                 break
 
+        self._log_stats(trial, covered, config.quota)
         # save the last state
         self.dump(trial, covered, api_mutator, path=_latest)
 
@@ -314,6 +318,21 @@ class HarnessGenerator:
             Trial.load(latest["trial"]),
             Covered.load(latest["coverage"]),
             APICombMutator.load(latest["mutator-api"]),
+        )
+
+    def _log_stats(self, trial: Trial, covered: Coverage, quota: float):
+        """Log the current statistics.
+        Args:
+            trial, covered: generation trials and the global coverages.
+            quota: a limit for LLM API billing, in dollars.
+        """
+        self.logger.log(
+            f"""
+Success: {trial.success}/{trial.trial} ({trial.cost:.2f}/{quota}$)
+  Coverage: branch {covered.branch_coverage}, line {covered.line_coverage}, fn {covered.function_coverage}
+  Failure: agent {trial.failure_agent}, parse {trial.failure_parse}, compile: {trial.failure_compile}
+  Failure: fuzzer {trial.failure_fuzzer}, coverage {trial.failure_coverage}, critical-path: {trial.failure_critical_path}
+""".strip()
         )
 
     def _choose(self, items: list, n: int) -> list:

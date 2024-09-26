@@ -19,6 +19,19 @@ class Coverage:
             self.functions[fn]
         )
 
+    @property
+    def branch_coverage(self) -> float:
+        # TODO: coverage computation supports
+        return 0.0
+
+    @property
+    def line_coverage(self) -> float:
+        return 0.0
+
+    @property
+    def function_coverage(self) -> float:
+        return 0.0
+
     def merge(self, other: "Coverage"):
         """Merge with the other one.
         Args:

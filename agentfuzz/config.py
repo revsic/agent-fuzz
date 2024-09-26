@@ -30,6 +30,8 @@ class Config:
     # the maximum running time of fuzzer stage on harness generation, in seconds. (coverage-growth check)
     timeout: float = 600
     timeout_unit: float = 60
+    # a limit for LLM API billing, in dollars.
+    quota: float = 10
 
     @classmethod
     def load_from_yaml(cls, path: str):

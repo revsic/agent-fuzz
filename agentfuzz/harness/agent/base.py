@@ -15,6 +15,8 @@ class Agent:
         messages: list[dict[str, str]]
         turn: int | None
         error: str | None = None
+        # TODO: cost tracking supports
+        billing: float | None = None
 
     def __init__(
         self, logger: AgentLogger | None = None, _stack: list[str] | None = None
