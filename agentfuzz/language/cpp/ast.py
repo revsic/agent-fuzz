@@ -220,20 +220,21 @@ class ClangASTParser(ASTParser):
         self._ast_caches[_key] = dumped
         return dumped
 
-    def _extract_cfg(self, source: str):
+    def _extract_cfg(self, source: str, target: str | None = "LLVMFuzzerTestOneInput"):
         """Extract a control flow grpah from the given source code.
         Args:
             source: a path to the target source file.
+            target: specify a function target of CFG or extract from all functions.
         Returns:
             extracted control-flow graph.
         """
         with open(source) as f:
             code = f.read()
-        _key = (source, code)
+        _key = (source, code, target)
         if _key in self._cfg_caches:
             return self._cfg_caches[_key]
         # extract cfg
-        extracted = self._run_cfg_dump(source, self.clang)
+        extracted = self._run_cfg_dump(source, self.clang, target)
         if len(self._cfg_caches) > self._max_cache:
             # FIFO
             self._cfg_caches = dict(list(self._cfg_caches.items())[1:])
@@ -278,12 +279,13 @@ class ClangASTParser(ASTParser):
 
     @classmethod
     def _run_cfg_dump(
-        cls, source: str, clang: str = "clang++", target: list[str] | None = None
+        cls, source: str, clang: str = "clang++", target: str | None = None
     ) -> list[dict]:
         """Run the clang for dump a control-flow graph.
         Args:
             source: a path to the target source file.
             clang: a path to the clang compiler.
+            target: specify a function target or generate all.
         Returns:
             dumped control flow graph.
         """
@@ -299,21 +301,23 @@ class ClangASTParser(ASTParser):
                 stderr=subprocess.DEVNULL,
             )
             # extract the control-flow graph from the IR
+            _spec = []
+            if target:
+                _spec = [f"-cfg-func-name={target}"]
             subprocess.run(
-                ["opt", ir, "-p", "dot-cfg"],
+                ["opt", ir, "-p", "dot-cfg"] + _spec,
                 cwd=_temp,
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            if target is None:
-                target = [
-                    os.path.join(_temp, filename)
-                    for filename in os.listdir(_temp)
-                    if filename.startswith(".") and filename.endswith(".dot")
-                ]
+            files = [
+                os.path.join(_temp, filename)
+                for filename in os.listdir(_temp)
+                if filename.startswith(".") and filename.endswith(".dot")
+            ]
             # serialize it into a json
-            for path in target:
+            for path in files:
                 subprocess.run(
                     ["dot", "-Txdot_json", path, "-o", f"{path}.json"],
                     check=True,
@@ -324,7 +328,7 @@ class ClangASTParser(ASTParser):
             return {"error": e, "_traceback": traceback.format_exc()}
         # load json
         cfgs = {}
-        for path in target:
+        for path in files:
             with open(f"{path}.json") as f:
                 loaded = json.load(f)
             cfgs[os.path.basename(path)[1 : -len(".dot.json")]] = loaded
