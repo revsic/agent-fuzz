@@ -4,7 +4,7 @@ import random
 import shutil
 import traceback
 from dataclasses import dataclass, asdict
-from time import time
+from time import sleep
 from uuid import uuid4
 
 from agentfuzz.analyzer import Coverage, Factory, Fuzzer
@@ -47,7 +47,7 @@ class Trial(_Serializable):
     failure_critical_path: int = 0
     success: int = 0
     converged: bool = False
-    cost: float = 0.
+    cost: float = 0.0
 
 
 @dataclass
@@ -192,12 +192,19 @@ class HarnessGenerator:
 
             # unpack
             _ext, code = code
-            # write to the work directory
+            # construct working directory
+            workdir = os.path.join(self._dir_work, str(trial.trial))
+            os.makedirs(workdir, exist_ok=True)
+            # write the code
             filename = f"{trial.trial}.{config.ext}".rstrip(".")
-            path = os.path.join(self._dir_work, filename)
+            path = os.path.join(workdir, filename)
+            if os.path.exists(path):
+                self.logger.log(f"  WARNING: duplicated path, {path}")
             with open(path, "w") as f:
                 f.write(code)
-            self.logger.log(f"  Success to parse the code: work/{filename}")
+            self.logger.log(
+                f"  Success to parse the code: work/{trial.trial}/{filename}"
+            )
 
             # check the validity in runtime
             ## 1. Compilability
@@ -205,53 +212,66 @@ class HarnessGenerator:
             try:
                 fuzzer = self.factory.compiler.compile(path)
             except Exception as e:
-                uid = uuid4().hex
-                with open(os.path.join(self._dir_failure_compile, uid), "w") as f:
+                with open(os.path.join(workdir, "failure_compile.txt"), "w") as f:
                     f.write(traceback.format_exc())
-                trial.failure_compile += 1
-                self.logger.log(
-                    f"  Failed to compile the harness: {e} (written as {uid})"
+                shutil.move(
+                    workdir, os.path.join(self._dir_failure_compile, str(trial.trial))
                 )
+                trial.failure_compile += 1
+                self.logger.log(f"  Failed to compile the harness {trial.trial}: {e}")
                 continue
             self.logger.log(f"  Success to compile the code")
 
             ## 2. Coverage Growth
-            max_try = -(-config.timeout // config.timeout_unit)
-            cov, residual = Coverage(), config.timeout
-            for i in range(max_try):
-                self.logger.log(
-                    f"  {i}th fuzzer round ({i}/{max_try}, {residual:.2f}s rest)"
+            try:
+                fuzzer.run(
+                    config.corpus_dir,
+                    config.fuzzdict,
+                    wait_until_done=False,
+                    timeout=config.timeout,
+                    runs=None,
                 )
-                retn: int | None | Exception
-                try:
-                    # runtime check for managing timeout
-                    start = time()
-                    # run the fuzzer
-                    retn = fuzzer.run(
-                        config.corpus_dir,
-                        config.fuzzdict,
-                        wait_until_done=True,
-                        timeout=min(config.timeout_unit, residual),
-                    )
-                    residual -= time() - start
-                    # merge coverage
-                    cov.merge(fuzzer.coverage())
-                    if not self._check_cov_growth(covered, cov):
+                last_cov = 0
+                while fuzzer.poll() is None:
+                    if last_cov >= (current := fuzzer.track()):
                         break
-                    # TODO: return code check
-                except Exception as e:
-                    uid = uuid4().hex
-                    with open(os.path.join(self._dir_failure_fuzzer, uid), "w") as f:
-                        f.write(traceback.format_exc())
-                    trial.failure_fuzzer += 1
-                    self.logger.log(
-                        f"  Failed to run the fuzzer: {e} (written as {uid})"
-                    )
-                    break
+                    last_cov = current
+                    sleep(config.timeout_unit)
+            except Exception as e:
+                with open(os.path.join(workdir, "failure_fuzzer.txt"), "w") as f:
+                    f.write(traceback.format_exc())
+                shutil.move(
+                    workdir, os.path.join(self._dir_failure_fuzzer, str(trial.trial))
+                )
+                trial.failure_fuzzer += 1
+                self.logger.log(f"  Failed to run the fuzzer {trial.trial}: {e}")
+                continue
 
             self.logger.log(f"  Success to fuzz the code")
 
             ## 3. Critcial Path Coverage
+            cov: Coverage
+            try:
+                fuzzer.run(
+                    config.corpus_dir,
+                    config.fuzzdict,
+                    wait_until_done=True,
+                    timeout=None,
+                    runs=0,
+                )
+                cov = fuzzer.coverage()
+            except Exception as e:
+                with open(os.path.join(workdir, "failure_cov.txt"), "w") as f:
+                    f.write(traceback.format_exc())
+                shutil.move(
+                    workdir, os.path.join(self._dir_failure_fuzzer, str(trial.trial))
+                )
+                trial.failure_fuzzer += 1
+                self.logger.log(
+                    f"  Failed to run the fuzzer to collect coverage {trial.trial}: {e}"
+                )
+                continue
+
             # check the harness validity
             if not self._check_cov_growth(covered, cov):
                 trial.failure_coverage += 1
