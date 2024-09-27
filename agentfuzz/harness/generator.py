@@ -2,6 +2,7 @@ import json
 import os
 import random
 import shutil
+import tempfile
 import traceback
 from dataclasses import dataclass, asdict
 from time import sleep
@@ -250,27 +251,22 @@ class HarnessGenerator:
             self.logger.log(f"  Success to fuzz the code")
 
             ## 3. Critcial Path Coverage
-            cov: Coverage
-            try:
-                fuzzer.run(
-                    config.corpus_dir,
-                    config.fuzzdict,
-                    wait_until_done=True,
-                    timeout=None,
-                    runs=0,
-                )
-                cov = fuzzer.coverage()
-            except Exception as e:
-                with open(os.path.join(workdir, "failure_cov.txt"), "w") as f:
-                    f.write(traceback.format_exc())
-                shutil.move(
-                    workdir, os.path.join(self._dir_failure_fuzzer, str(trial.trial))
-                )
-                trial.failure_fuzzer += 1
-                self.logger.log(
-                    f"  Failed to run the fuzzer to collect coverage {trial.trial}: {e}"
-                )
-                continue
+            cov = Coverage()
+            for corpora in os.listdir(config.corpus_dir):
+                _tempdir = tempfile.mkdtemp()
+                shutil.copy(corpora, os.path.join(_tempdir, corpora))
+                try:
+                    fuzzer.run(
+                        _tempdir,
+                        config.fuzzdict,
+                        wait_until_done=True,
+                        timeout=None,
+                        runs=0,
+                    )
+                    cov.merge(fuzzer.coverage())
+                except Exception as e:
+                    self.logger.log(f"  Failed to run the corpora {corpora}: {e}")
+                    continue
 
             # check the harness validity
             if not self._check_cov_growth(covered, cov):

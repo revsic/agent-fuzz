@@ -98,7 +98,7 @@ class LibFuzzer(Fuzzer):
                 _new_dir = os.path.join(self._workdir, "corpus")
                 shutil.copytree(corpus_dir, _new_dir)
                 corpus_dir = _new_dir
-        # run the fuzzer
+        # prepare the arguments
         cmd = [self.path]
         if corpus_dir is not None:
             cmd.append(corpus_dir)
@@ -106,11 +106,16 @@ class LibFuzzer(Fuzzer):
             cmd.append(f"-dict={fuzzdict}")
         if runs is not None:
             cmd.append(f"-runs={runs}")
-
+        # remove if profile exists
+        _profile = _profile or f"{self.path}.profraw"
+        if os.path.exists(_profile):
+            os.remove(_profile)
+        # run the fuzzer
         self._proc = subprocess.Popen(
             cmd,
             stderr=open(_logfile or f"{self.path}.log", "wb"),
-            env={**os.environ, "LLVM_PROFILE_FILE": _profile or f"{self.path}.profraw"},
+            cwd=self._workdir,
+            env={**os.environ, "LLVM_PROFILE_FILE": _profile},
         )
         if timeout is not None:
             self._timeout = time() + timeout
