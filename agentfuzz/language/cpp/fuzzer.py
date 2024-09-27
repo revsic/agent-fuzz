@@ -62,6 +62,7 @@ class LibFuzzer(Fuzzer):
         fuzzdict: str | None = None,
         wait_until_done: bool = False,
         timeout: float | None = 300.0,
+        runs: int | None = None,
         _profile: str | None = None,
         _logfile: str | None = None,
     ) -> int | Exception | None:
@@ -71,6 +72,7 @@ class LibFuzzer(Fuzzer):
             fuzzdict: a path to the fuzzing dictionary file.
             wait_until_done: wait for the fuzzer done.
             timeout: the maximum running time in seconds.
+            runs: the number of individual tests, None or -1 for indefinitely run.
             _profile: a path to the coverage profiling file, use `{self.path}.profraw` if it is not provided.
             _logfile: a path to the fuzzing log file, use `{self.path}.log` if it is not provided.
         Returns:
@@ -78,6 +80,9 @@ class LibFuzzer(Fuzzer):
             None: if fuzzer process is running now.
             Exception: if the fuzzer process deos not exist or timeout occured.
         """
+        assert not wait_until_done or (
+            timeout is not None or runs is not None
+        ), "hang may occur"
         # if already run
         if self._proc is not None:
             return self.poll()
@@ -98,13 +103,16 @@ class LibFuzzer(Fuzzer):
             cmd.append(corpus_dir)
         if fuzzdict is not None:
             cmd.append(f"-dict={fuzzdict}")
+        if runs is not None:
+            cmd.append(f"-runs={runs}")
 
         self._proc = subprocess.Popen(
             cmd,
             stderr=open(_logfile or f"{self.path}.log", "wb"),
             env={**os.environ, "LLVM_PROFILE_FILE": _profile or f"{self.path}.profraw"},
         )
-        self._timeout = time() + timeout
+        if timeout is not None:
+            self._timeout = time() + timeout
         if not wait_until_done:
             return self.poll()
         # wait until done
@@ -259,7 +267,7 @@ class Clang(Compiler):
             fuzzer object.
         """
         if _workdir is None:
-            _workdir, _ = os.path.splitext(srcfile)
+            _workdir = os.path.dirname(srcfile)
         os.makedirs(_workdir, exist_ok=True)
         _include_args = [arg for path in self.include_dir for arg in ("-I", path)]
         executable = _outpath or f"{_workdir}/{os.path.basename(srcfile)}.out"
