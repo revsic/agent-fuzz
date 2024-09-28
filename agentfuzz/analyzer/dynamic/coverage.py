@@ -55,12 +55,12 @@ class Coverage:
         Args:
             other: another coverage.
         """
-        self.functions = {
-            fn: {
-                id_: self.functions.get(fn, {}).get(id_, 0)
-                + other.functions.get(fn, {}).get(id_, 0)
-                for id_ in set(self.functions.get(fn, {}))
-                | set(other.functions.get(fn, {}))
+        _merge = lambda a, b: {
+            key: {
+                id_: a.get(key, {}).get(id_, 0) + b.get(key, {}).get(id_, 0)
+                for id_ in set(a.get(key, {})) | set(b.get(key, {}))
             }
-            for fn in set(self.functions) | set(other.functions)
+            for key in set(a) | set(b)
         }
+        self.functions = _merge(self.functions, other.functions)
+        self.lines = _merge(self.lines, other.lines)

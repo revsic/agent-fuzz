@@ -229,17 +229,23 @@ class LibFuzzer(Fuzzer):
             ) from e
         # pack to coverage
         packed = Coverage()
-        for filelevel in cov.values():
+        for filename, filelevel in cov.items():
             packed.merge(
                 Coverage(
-                    {
+                    functions={
                         fn: {
                             f"L{lineno}#({blockno}, {branchno})": hit or 0
                             for lineno, branches in info["branches"].items()
                             for (blockno, branchno), hit in branches.items()
                         }
                         for fn, info in filelevel["functions"].items()
-                    }
+                    },
+                    lines={
+                        filename: {
+                            str(lineno): hit
+                            for lineno, hit in filelevel["lines"].items()
+                        }
+                    },
                 )
             )
         return packed
