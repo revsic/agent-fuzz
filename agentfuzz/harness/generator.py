@@ -5,7 +5,7 @@ import shutil
 import tempfile
 import traceback
 from dataclasses import dataclass, asdict
-from time import sleep
+from time import sleep, time
 from uuid import uuid4
 
 from agentfuzz.analyzer import APIGadget, Coverage, Factory, Fuzzer
@@ -69,7 +69,7 @@ class HarnessGenerator:
         factory: Factory,
         workdir: str | None = None,
         prompt: str | PromptRenderer = BaselinePrompt(),
-        logger: Logger | None = None,
+        logger: Logger | str | None = None,
         _clear_previous_work: bool = False,
     ):
         """Initialize the harness generator.
@@ -89,6 +89,8 @@ class HarnessGenerator:
             ), f"invalid prompt name `{prompt}`, supports only `{', '.join(PROMPT_SUPPORTS)}`"
             prompt = PROMPT_SUPPORTS[prompt]
         self.prompt = prompt
+        if isinstance(logger, str):
+            logger = Logger(logger)
         self.logger = logger or self.DEFAULT_LOGGER
         # working directories
         self._dir_state = os.path.join(self.workdir, "state")
@@ -229,6 +231,7 @@ class HarnessGenerator:
 
             ## 2. Coverage Growth
             try:
+                start = time()
                 fuzzer.run(
                     corpus_dir,
                     config.fuzzdict,
@@ -249,10 +252,12 @@ class HarnessGenerator:
                     workdir, os.path.join(self._dir_failure_fuzzer, str(trial.trial))
                 )
                 trial.failure_fuzzer += 1
-                self.logger.log(f"  Failed to run the fuzzer {trial.trial}: {e}")
+                self.logger.log(
+                    f"  Failed to run the fuzzer {trial.trial} ({time() - start:.2f}s): {e}"
+                )
                 continue
 
-            self.logger.log(f"  Success to fuzz the code")
+            self.logger.log(f"  Success to fuzz the code({time() - start:.2f}s)")
 
             ## 3. Critcial Path Coverage
             cov_lib, cov_fuzz = Coverage(), Coverage()
@@ -273,6 +278,10 @@ class HarnessGenerator:
                     self.logger.log(f"  Failed to run the corpora {corpora}: {e}")
                     continue
 
+            self.logger.log(
+                f"  Success to extract the coverage(lib: {cov_lib.coverage_branch * 100:.2f}%, fuzzer: {cov_fuzz.coverage_branch * 100:.2f}%)"
+            )
+
             # check the harness validity
             ## A. branch coverage growth
             if not (set(cov_lib.flat(nonzero=True)) - set(covered.flat(nonzero=True))):
@@ -281,6 +290,9 @@ class HarnessGenerator:
                     f"  FP: Coverage did not grow (current: {cov_lib.coverage_branch * 100:.2f}%, global: {covered.coverage_branch * 100:.2f}%)"
                 )
                 break
+
+            self.logger.log(f"  Success to make the coverage growth")
+
             ## B. critical path coverage
             critical_paths = self.factory.parser.extract_critical_path(
                 path, gadgets=apis
@@ -295,8 +307,10 @@ class HarnessGenerator:
             ]
             if not validated_paths:
                 trial.failure_critical_path += 1
-                self.logger.log(f"  FP: Critical path did not hit")
+                self.logger.log(f"  FP: Critical path did not hit, {critical_paths}")
                 break
+
+            self.logger.log(f"  Success to hit the full critical path")
 
             # on success
             path = os.path.join(self._dir_harness, filename)
@@ -364,7 +378,7 @@ class HarnessGenerator:
         """
         self.logger.log(
             f"""
-Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / trial.trial * 100:.4f}, Quota {trial.cost:.2f}/{quota}$)
+Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / max(trial.trial, 1) * 100:.4f}, Quota {trial.cost:.2f}/{quota}$)
   Coverage: branch {covered.coverage_branch * 100:.4f}%
   Failure: agent {trial.failure_agent}, parse {trial.failure_parse}, compile: {trial.failure_compile}
   Failure: fuzzer {trial.failure_fuzzer}, coverage {trial.failure_coverage}, critical-path: {trial.failure_critical_path}
