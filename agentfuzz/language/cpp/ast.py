@@ -223,7 +223,12 @@ class ClangASTParser(ASTParser):
                     if i not in path
                 ]
             )
-        return maxapis
+        # minimize
+        minimized = []
+        for apis in maxapis:
+            if apis not in minimized:
+                minimized.append(apis)
+        return minimized
 
     def _parse_dot_body(
         self, body: str, meta: dict | None = None
