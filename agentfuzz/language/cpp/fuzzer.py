@@ -89,12 +89,12 @@ class LibFuzzer(Fuzzer):
         if self._proc is not None:
             return self.poll()
         # isolate the corpus directory
-        if _isolate_copurs_dir and corpus_dir is not None:
+        if corpus_dir is not None:
             if self.minimize_corpus:
                 # if successfully minimized
                 if minimized := self._minimize_corpus(corpus_dir):
                     corpus_dir = minimized
-            else:
+            elif _isolate_copurs_dir:
                 # since libfuzzer generate the new corpus inplace the directory
                 _new_dir = os.path.join(self._workdir, "corpus")
                 shutil.copytree(corpus_dir, _new_dir)
