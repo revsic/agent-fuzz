@@ -91,8 +91,11 @@ class LibFuzzer(Fuzzer):
             if self.minimize_corpus:
                 # if successfully minimized
                 if minimized := self.minimize(corpus_dir):
-                    # TODO: Overwrite the minimized corpus to corpus_dir if `not _isolate_corpus_dir`
-                    corpus_dir = minimized
+                    if _isolate_copurs_dir:
+                        corpus_dir = minimized
+                    else:
+                        shutil.rmtree(corpus_dir)
+                        shutil.move(minimized, corpus_dir)
             elif _isolate_copurs_dir:
                 # since libfuzzer generate the new corpus inplace the directory
                 _new_dir = os.path.join(self._workdir, "corpus")
