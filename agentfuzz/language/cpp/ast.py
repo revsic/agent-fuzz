@@ -243,15 +243,15 @@ class ClangASTParser(ASTParser):
         _debugs, result = meta.get("debugs", {}), []
         for ir in irs.strip("\\l").split("\\l"):
             if not (dbgs := re.findall(r"!dbg !(\d+)", ir)):
-                result.append((ir, None))
+                result.append((ir.strip(), None))
                 continue
             # parsed debug information
             (dbg,) = dbgs
             if not (linenos := re.findall(r"line: (\d+)", _debugs.get(int(dbg)))):
-                result.append((ir, None))
+                result.append((ir.strip(), None))
                 continue
             (lineno,) = linenos
-            result.append((ir, int(lineno)))
+            result.append((ir.strip(), int(lineno)))
         return result
 
     def _find_gadget(
@@ -444,15 +444,13 @@ class ClangASTParser(ASTParser):
         # metadata
         with open(ir) as f:
             ll = f.read()
-            cfgs = {
-                "__meta__": {
-                    "source": ll,
-                    "debugs": {
-                        int(found[0]): line
-                        for line in ll.split("\n")
-                        if (found := re.findall(r"^!(\d+)", line))
-                    },
-                }
+            cfgs["__meta__"] = {
+                "source": ll,
+                "debugs": {
+                    int(found[0]): line
+                    for line in ll.split("\n")
+                    if (found := re.findall(r"^!(\d+)", line))
+                },
             }
 
         return cfgs
