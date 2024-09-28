@@ -184,7 +184,7 @@ class LibFuzzer(Fuzzer):
         """
         # assign default value
         _logfile = _logfile or f"{self.path}.log"
-        with open(_logfile) as f:
+        with open(_logfile, errors="replace") as f:
             log = f.read()
         # `#614201 REDUCE cov: 253 ft: 1249 corp: 455/35kb lim: 1188 exec/s: 153550 rss: 493Mb L: 520/1003 MS: 1 EraseBytes-`
         index = log.rfind("cov")
