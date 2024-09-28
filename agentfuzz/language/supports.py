@@ -1,3 +1,6 @@
+import os
+import traceback
+
 from agentfuzz.analyzer import Factory
 from agentfuzz.config import Config
 from agentfuzz.harness.generator import HarnessGenerator
@@ -24,7 +27,13 @@ class LanguageSupports:
 
     def run(self, load_from_state: bool = True, logger: str | None = None):
         """Run the AgentFuzz pipeline."""
-        self._Generator(self.factory, self.workdir, logger=logger).run(load_from_state)
+        try:
+            g = self._Generator(self.factory, self.workdir, logger=logger)
+            g.run(load_from_state)
+        except:
+            os.makedirs(self.workdir, exist_ok=True)
+            with open(os.path.join(self.workdir, "exception.log"), "w") as f:
+                f.write(traceback.format_exc())
 
     @classmethod
     def from_yaml(cls, workdir: str, config: str) -> "LanguageSupports":
