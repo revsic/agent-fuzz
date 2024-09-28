@@ -50,7 +50,7 @@ class Coverage:
     @property
     def coverage_branch(self) -> float:
         """Compute the branch coverage."""
-        return len(self.flat(nonzero=True)) / len(self.flat(nonzero=False))
+        return len(self.flat(nonzero=True)) / max(len(self.flat(nonzero=False)), 1)
 
     def merge(self, other: "Coverage"):
         """Merge with the other one.
