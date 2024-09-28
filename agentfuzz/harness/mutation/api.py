@@ -42,8 +42,15 @@ class APIMutator:
         density = 1.0
         unique_branches = len(cov.flat(nonzero=True))
         quality = density * (1 + unique_branches)
+        _name = lambda g: (g if isinstance(g, str) else g.name)
         self.seeds.append(
-            {"quality": quality, "critical_path": critical_path, "source": path}
+            {
+                "quality": quality,
+                "critical_path": [
+                    (_name(gadget), lineno) for gadget, lineno in critical_path
+                ],
+                "source": path,
+            }
         )
 
     def select(self, coverage: Coverage, minlen: int, maxlen: int) -> list[APIGadget]:
