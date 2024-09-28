@@ -251,7 +251,7 @@ class HarnessGenerator:
             self.logger.log(f"  Success to fuzz the code")
 
             ## 3. Critcial Path Coverage
-            cov = Coverage()
+            cov_lib, cov_fuzz = Coverage(), Coverage()
             for corpora in os.listdir(config.corpus_dir):
                 _tempdir = tempfile.mkdtemp()
                 shutil.copy(corpora, os.path.join(_tempdir, corpora))
@@ -263,21 +263,25 @@ class HarnessGenerator:
                         timeout=None,
                         runs=0,
                     )
-                    cov.merge(fuzzer.coverage())
+                    cov_lib.merge(fuzzer.coverage())
+                    cov_fuzz.merge(fuzzer.coverage(itself=True))
                 except Exception as e:
                     self.logger.log(f"  Failed to run the corpora {corpora}: {e}")
                     continue
 
             # check the harness validity
             ## A. branch coverage growth
-            if len(set(cov.flat(nonzero=True)) - set(covered.flat(nonzero=True))) == 0:
+            if not (set(cov_lib.flat(nonzero=True)) - set(covered.flat(nonzero=True))):
                 trial.failure_coverage += 1
                 self.logger.log(
-                    f"  FP: Coverage did not grow (current: {cov.branch_coverage * 100:.2f}%, global: {covered.branch_coverage * 100:.2f}%)"
+                    f"  FP: Coverage did not grow (current: {cov_lib.branch_coverage * 100:.2f}%, global: {covered.branch_coverage * 100:.2f}%)"
                 )
                 break
             ## B. critical path coverage
-            if not self._check_critical_path(path, cov):
+            critical_path = self.factory.parser.extract_critical_path(
+                path, gadgets=apis
+            )
+            if not self._check_critical_path(cov_fuzz, critical_path):
                 trial.failure_critical_path += 1
                 self.logger.log(f"  FP: Critical path did not hit")
                 break
@@ -288,8 +292,8 @@ class HarnessGenerator:
                 f.write(code)
 
             trial.success += 1
-            covered.merge(cov)
-            api_mutator.append_seeds(path)
+            covered.merge(cov_lib)
+            api_mutator.append_seeds(path, cov_lib, critical_path)
 
             self.logger.log(
                 f"Success to generate the harness, written in harness/{filename}"
@@ -386,11 +390,11 @@ Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / trial.trial * 
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
 
-    def _check_critical_path(self, path: str, cov: Coverage) -> bool:
+    def _check_critical_path(self, cov: Coverage, critical_path: list[str]) -> bool:
         """Check the given fuzzer hit the full critical path or not.
         Args:
-            path: a path to the harness source code.
-            cov: a coverage descriptor about the fuzzer run.
+            cov: a coverage descriptor of the fuzzer (not library coverage).
+            critical_path: a list of apis that is extracted critical path of the fuzzer harness.
         Returns:
             True if given fuzzer hit the full critical path.
         """
