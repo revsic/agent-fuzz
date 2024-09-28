@@ -269,11 +269,14 @@ class HarnessGenerator:
                     continue
 
             # check the harness validity
-            if not self._check_cov_growth(covered, cov):
+            ## A. branch coverage growth
+            if len(set(cov.flat(nonzero=True)) - set(covered.flat(nonzero=True))) == 0:
                 trial.failure_coverage += 1
-                self.logger.log(f"  FP: Coverage did not grow")
+                self.logger.log(
+                    f"  FP: Coverage did not grow (current: {cov.branch_coverage * 100:.2f}%, global: {covered.branch_coverage * 100:.2f}%)"
+                )
                 break
-
+            ## B. critical path coverage
             if not self._check_critical_path(path, cov):
                 trial.failure_critical_path += 1
                 self.logger.log(f"  FP: Critical path did not hit")
@@ -344,8 +347,8 @@ class HarnessGenerator:
         """
         self.logger.log(
             f"""
-Success: {trial.success}/{trial.trial} ({trial.cost:.2f}/{quota}$)
-  Coverage: branch {covered.branch_coverage}, line {covered.line_coverage}, fn {covered.function_coverage}
+Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / trial.trial * 100:.4f}, Quota {trial.cost:.2f}/{quota}$)
+  Coverage: branch {covered.branch_coverage * 100:.4f}%
   Failure: agent {trial.failure_agent}, parse {trial.failure_parse}, compile: {trial.failure_compile}
   Failure: fuzzer {trial.failure_fuzzer}, coverage {trial.failure_coverage}, critical-path: {trial.failure_critical_path}
 """.strip()
@@ -382,16 +385,6 @@ Success: {trial.success}/{trial.trial} ({trial.cost:.2f}/{quota}$)
         # split ext
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
-
-    def _check_cov_growth(self, covered: Covered, cov: Coverage) -> bool:
-        """Check whether the given fuzzer makes the global coverage grwoth.
-        Args:
-            covered: the global coverage descriptor.
-            cov: a coverage descriptor about the fuzzer run.
-        Returns:
-            True if given fuzzer hit the new unique branches.
-        """
-        return True
 
     def _check_critical_path(self, path: str, cov: Coverage) -> bool:
         """Check the given fuzzer hit the full critical path or not.

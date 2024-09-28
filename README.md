@@ -77,7 +77,7 @@ Dynamic analysis
 - [x] Compute the branch coverage
 
 FP Elimination
-- [ ] Runtime fuzzing validation: 60sec for cov growth, 600sec for corpus pool
+- [x] Runtime fuzzing validation: 60sec for cov growth, 600sec for corpus pool
 - [ ] Runtime coverage validation: critical path check
 - [ ] Corpuse reusage
 
