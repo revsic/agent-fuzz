@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass, field
 
 
@@ -29,6 +30,7 @@ class Coverage:
         Returns:
             whether the given line is covered.
         """
+        filename = os.path.abspath(filename)
         if filename not in self.lines:
             return None
         return self.lines[filename].get(str(lineno), 0) > 0

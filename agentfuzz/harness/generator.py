@@ -268,6 +268,7 @@ class HarnessGenerator:
             ## 3. Critcial Path Coverage
             start = time()
             cov_lib, cov_fuzz = Coverage(), Coverage()
+            # TODO: minimize corpus directory first
             for corpora in tqdm(os.listdir(corpus_dir)):
                 _tempdir = tempfile.mkdtemp()
                 shutil.copy(
@@ -317,7 +318,23 @@ class HarnessGenerator:
             ]
             if not validated_paths:
                 trial.failure_critical_path += 1
-                self.logger.log(f"  FP: Critical path did not hit, {critical_paths}")
+                _name = lambda g: g if isinstance(g, str) else g.name
+                _hit = lambda l: (
+                    "(invalid lineno)"
+                    if l is None
+                    else (
+                        "(invalid filename)"
+                        if (c := cov_fuzz.cover_lines(path, l)) is None
+                        else ("hit" if c else "(miss)")
+                    )
+                )
+                _critical_paths = "\n    ".join(
+                    f"[{', '.join(_name(gadget) + _hit(lineno) for gadget, lineno in critical_path)}]"
+                    for critical_path in critical_paths
+                )
+                self.logger.log(
+                    f"  FP: Critical path did not hit,\n    {_critical_paths}"
+                )
                 continue
 
             self.logger.log(f"  Success to hit the full critical path")

@@ -93,6 +93,7 @@ class LibFuzzer(Fuzzer):
             if self.minimize_corpus:
                 # if successfully minimized
                 if minimized := self._minimize_corpus(corpus_dir):
+                    # TODO: Overwrite the minimized corpus to corpus_dir if `not _isolate_corpus_dir`
                     corpus_dir = minimized
             elif _isolate_copurs_dir:
                 # since libfuzzer generate the new corpus inplace the directory
@@ -261,7 +262,7 @@ class LibFuzzer(Fuzzer):
                         for fn, info in filelevel["functions"].items()
                     },
                     lines={
-                        filename: {
+                        os.path.abspath(filename): {
                             str(lineno): hit
                             for lineno, hit in filelevel["lines"].items()
                         }
