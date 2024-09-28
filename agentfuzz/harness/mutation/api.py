@@ -23,10 +23,15 @@ class APIMutator:
         if counter is None:
             counter = {g.signature(): {"prompt": 0, "seed": 0} for g in gadgets}
         self.counter = counter
-        self.seeds = seeds or {}
+        self.seeds = seeds or []
         self.exponent = exponent
 
-    def append_seeds(self, path: str, cov: Coverage, critical_path: list[str]):
+    def append_seeds(
+        self,
+        path: str,
+        cov: Coverage,
+        critical_path: list[tuple[str | APIGadget, int | None]],
+    ):
         """Compute append a harness seed into the seed pool.
         Args:
             path: a path to the harness source code.
@@ -37,7 +42,9 @@ class APIMutator:
         density = ...
         unique_branches = len(cov.flat(nonzero=True))
         quality = density * (1 + unique_branches)
-        self.seeds[path] = {"quality": quality, "critical_path": critical_path}
+        self.seeds.append(
+            {"quality": quality, "critical_path": critical_path, "source": path}
+        )
 
     def select(self, coverage: Coverage, minlen: int, maxlen: int) -> list[APIGadget]:
         """Select the APIs w.r.t. the energies and qualities.
@@ -177,12 +184,15 @@ class APIMutator:
             for gadget, energy in zip(self.gadgets, energies)
         }
         (seed,) = random.choices(
-            list(self.seeds),
-            [q["quality"] for q in self.seeds.values()],
+            self.seeds,
+            [seed["quality"] for seed in self.seeds],
             k=1,
         )
+        # TODO: It may occur unexpected behaviour on overloadable language
         names, gadgets = set(), []
-        for name in self.seeds[seed]["critical_path"]:
+        for name, _ in seed["critical_path"]:
+            if isinstance(name, APIGadget):
+                name = name.name
             if name in names or name not in pack:
                 continue
             gadgets.append(pack[name])

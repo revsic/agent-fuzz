@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict
 from time import sleep
 from uuid import uuid4
 
-from agentfuzz.analyzer import Coverage, Factory, Fuzzer
+from agentfuzz.analyzer import APIGadget, Coverage, Factory, Fuzzer
 from agentfuzz.harness.agent import Agent
 from agentfuzz.harness.mutation import APIMutator
 from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRenderer
@@ -278,10 +278,12 @@ class HarnessGenerator:
                 )
                 break
             ## B. critical path coverage
-            critical_path = self.factory.parser.extract_critical_path(
+            critical_paths = self.factory.parser.extract_critical_path(
                 path, gadgets=apis
             )
-            if not self._check_critical_path(cov_fuzz, critical_path):
+            if not (
+                validated_paths := self._check_critical_paths(cov_fuzz, critical_paths)
+            ):
                 trial.failure_critical_path += 1
                 self.logger.log(f"  FP: Critical path did not hit")
                 break
@@ -293,7 +295,8 @@ class HarnessGenerator:
 
             trial.success += 1
             covered.merge(cov_lib)
-            api_mutator.append_seeds(path, cov_lib, critical_path)
+            for path in validated_paths:
+                api_mutator.append_seeds(path, cov_lib, path)
 
             self.logger.log(
                 f"Success to generate the harness, written in harness/{filename}"
@@ -390,15 +393,19 @@ Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / trial.trial * 
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
 
-    def _check_critical_path(self, cov: Coverage, critical_path: list[str]) -> bool:
+    def _check_critical_paths(
+        self,
+        cov: Coverage,
+        critical_paths: list[list[tuple[str | APIGadget, int | None]]],
+    ) -> list[list[tuple[str | APIGadget, int | None]]]:
         """Check the given fuzzer hit the full critical path or not.
         Args:
             cov: a coverage descriptor of the fuzzer (not library coverage).
-            critical_path: a list of apis that is extracted critical path of the fuzzer harness.
+            critical_paths: a list of api sequences that are extracted critical paths of the fuzzer harness.
         Returns:
-            True if given fuzzer hit the full critical path.
+            the list of fully covered critical paths.
         """
-        return True
+        return critical_paths
 
     def trial_converge(self, trial: Trial, cov: Covered) -> bool:
         """Check the generation trial converge.

@@ -72,14 +72,14 @@ class ASTParser:
 
     def extract_critical_path(
         self, source: str, gadgets: list[APIGadget]
-    ) -> list[list[str | APIGadget]]:
+    ) -> list[list[tuple[str | APIGadget, int | None]]]:
         """Extract the ciritical path from the source code.
         Args:
             source: a path to the source code file.
             gadgets: a list of interests, return only the apis involved in `gadgets` if provided.
                 returns the function name instead of gadgets if it is not provided.
         Returns:
-            a list of longest API gadget sequences.
+            a list of longest API gadget sequences and their line numbers.
         """
         raise NotImplementedError("ASTParser.extract_critical_path is not implemented")
 

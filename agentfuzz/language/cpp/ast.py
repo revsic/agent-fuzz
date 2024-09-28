@@ -167,17 +167,19 @@ class ClangASTParser(ASTParser):
         source: str,
         gadgets: list[CStyleAPIGadget] | None = None,
         target: str = "LLVMFuzzerTestOneInput",
-    ) -> list[list[str | CStyleAPIGadget]]:
+    ) -> list[list[tuple[str | CStyleAPIGadget, int | None]]]:
         """Extract the critical path from the source code.
         Args:
             source: a path to the source code file.
             target: the specific function name to inspect.
             gadgets: the list of intersts, return only the apis involved in `gadgets` if provided.
         Returns:
-            a list of longest API gadget sequences.
+            a list of longest API gadget sequences and their line numbers.
         """
         # extract the control flow graph
-        (cfg,) = self._extract_cfg(source, target=target).values()
+        extracted = self._extract_cfg(source, target=target)
+        meta = extracted.pop("__meta__", {})
+        (cfg,) = extracted.values()
         # placeholder
         gadget = None
         # construct the graph
@@ -185,9 +187,9 @@ class ClangASTParser(ASTParser):
         nodes = {
             obj["_gvid"]: {
                 "body": [
-                    gadget or found
+                    (gadget or found, lineno)
                     # parse the IRs
-                    for ir in self._parse_dot_body(obj["label"])
+                    for ir, lineno in self._parse_dot_body(obj["label"], meta=meta)
                     for _, found in _call_stmt.findall(ir)
                     # name matching for C/C++ (exact or mangled)
                     if gadgets is None
@@ -223,19 +225,22 @@ class ClangASTParser(ASTParser):
             )
         return maxapis
 
-    def _parse_dot_body(self, body: str) -> list[str] | None:
+    def _parse_dot_body(
+        self, body: str, meta: dict | None = None
+    ) -> list[tuple[str, int | None]] | None:
         """Parse the graphviz json-format dot-file into a list of LLVM IRs.
         Args:
             body: the given `label` from the json-format dot-file.
+            meta: a metadata for retrieving line numbers.
         Returns:
-            a list of the LLVM IRs.
+            a list of the LLVM IRs and their line numbers.
         """
         inner = re.findall(r"^\{(.+?)\}$", body)
         if not inner:
             return None
         (body,) = inner
         _, irs, *_ = body.split("|", maxsplit=2)
-        return [ir.strip() for ir in irs.strip("\\l").split("\\l")]
+        return [(ir.strip(), None) for ir in irs.strip("\\l").split("\\l")]
 
     def _find_gadget(
         self,
@@ -387,7 +392,7 @@ class ClangASTParser(ASTParser):
         try:
             # transform C/C++ source to LLVM IR
             subprocess.run(
-                [clang, "-S", "-emit-llvm", source, "-o", ir],
+                [clang, "-S", "-g", "-O0", "-emit-llvm", source, "-o", ir],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -424,5 +429,18 @@ class ClangASTParser(ASTParser):
             with open(f"{path}.json") as f:
                 loaded = json.load(f)
             cfgs[os.path.basename(path)[1 : -len(".dot.json")]] = loaded
+        # metadata
+        with open(ir) as f:
+            ll = f.read()
+            cfgs = {
+                "__meta__": {
+                    "source": ll,
+                    "debugs": {
+                        int(found[0]): line
+                        for line in ll.split("\n")
+                        if (found := re.findall(r"^!(\d+)", line))
+                    },
+                }
+            }
 
         return cfgs
