@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from agentfuzz.analyzer import Factory
 from agentfuzz.config import Config
 from agentfuzz.language.cpp.ast import ClangASTParser
-from agentfuzz.language.cpp.fuzzer import Clang, _CXXFLAGS
+from agentfuzz.language.cpp.compiler import Clang, _CXXFLAGS
 from agentfuzz.language.supports import LanguageSupports
 
 
