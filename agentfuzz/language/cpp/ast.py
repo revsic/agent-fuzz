@@ -343,7 +343,7 @@ class ClangASTParser(ASTParser):
         if _key in self._cfg_caches:
             return self._cfg_caches[_key]
         # extract cfg
-        extracted = self._run_cfg_dump(source, self.clang, target)
+        extracted = self._run_cfg_dump(source, self.include_dir, self.clang, target)
         if len(self._cfg_caches) > self._max_cache:
             # FIFO
             self._cfg_caches = dict(list(self._cfg_caches.items())[1:])
@@ -388,11 +388,16 @@ class ClangASTParser(ASTParser):
 
     @classmethod
     def _run_cfg_dump(
-        cls, source: str, clang: str = "clang++", target: str | None = None
+        cls,
+        source: str,
+        include_dir: list[str] = [],
+        clang: str = "clang++",
+        target: str | None = None,
     ) -> dict[str, dict]:
         """Run the clang for dump a control-flow graph.
         Args:
             source: a path to the target source file.
+            include_dir: a list of paths to the directories for `#include` preprocessor.
             clang: a path to the clang compiler.
             target: specify a function target or generate all.
         Returns:
@@ -402,9 +407,10 @@ class ClangASTParser(ASTParser):
         _temp = tempfile.mkdtemp()
         ir = os.path.join(_temp, "ir.ll")
         try:
+            _include = [cmdarg for path in include_dir for cmdarg in ("-I", path)]
             # transform C/C++ source to LLVM IR
             subprocess.run(
-                [clang, "-S", "-g", "-O0", "-emit-llvm", source, "-o", ir],
+                [clang, "-S", "-g", "-O0", "-emit-llvm", source, "-o", ir, *_include],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
