@@ -19,18 +19,24 @@ class Coverage:
             self.functions[fn]
         )
 
+    def flat(self, nonzero: bool = False) -> dict[str, int]:
+        """Flatten the functions into a dictionary of branches and their hits.
+        Args:
+            nonzero: whether return the nonzero branches or not.
+        Returns:
+            branches and their hits.
+        """
+        return {
+            f"{fn=}/{branch=}": hit
+            for fn, branches in self.functions.items()
+            for branch, hit in branches
+            if not nonzero or hit > 0
+        }
+
     @property
     def branch_coverage(self) -> float:
-        # TODO: coverage computation supports
-        return 0.0
-
-    @property
-    def line_coverage(self) -> float:
-        return 0.0
-
-    @property
-    def function_coverage(self) -> float:
-        return 0.0
+        """Compute the branch coverage."""
+        return len(self.flat(nonzero=True)) / len(self.flat(nonzero=False))
 
     def merge(self, other: "Coverage"):
         """Merge with the other one.
