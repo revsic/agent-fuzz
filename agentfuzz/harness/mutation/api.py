@@ -26,9 +26,18 @@ class APIMutator:
         self.seeds = seeds or {}
         self.exponent = exponent
 
-    def append_seeds(self, path: str):
-        # TODO: Extract the critical call and ompute the quality
-        pass
+    def append_seeds(self, path: str, cov: Coverage, critical_path: list[str]):
+        """Compute append a harness seed into the seed pool.
+        Args:
+            path: a path to the harness source code.
+            cov: the branch coverage of the given harness.
+            critical_path: the extracted critical path from the harness.
+        """
+        # TODO: Compute density
+        density = ...
+        unique_branches = len(cov.flat(nonzero=True))
+        quality = density * (1 + unique_branches)
+        self.seeds[path] = {"quality": quality, "critical_path": critical_path}
 
     def select(self, coverage: Coverage, minlen: int, maxlen: int) -> list[APIGadget]:
         """Select the APIs w.r.t. the energies and qualities.
