@@ -240,7 +240,19 @@ class ClangASTParser(ASTParser):
             return None
         (body,) = inner
         _, irs, *_ = body.split("|", maxsplit=2)
-        return [(ir.strip(), None) for ir in irs.strip("\\l").split("\\l")]
+        _debugs, result = meta.get("debugs", {}), []
+        for ir in irs.strip("\\l").split("\\l"):
+            if not (dbgs := re.findall(r"!dbg !(\d+)", ir)):
+                result.append((ir, None))
+                continue
+            # parsed debug information
+            (dbg,) = dbgs
+            if not (linenos := re.findall(r"line: (\d+)", _debugs.get(int(dbg)))):
+                result.append((ir, None))
+                continue
+            (lineno,) = linenos
+            result.append((ir, int(lineno)))
+        return result
 
     def _find_gadget(
         self,
