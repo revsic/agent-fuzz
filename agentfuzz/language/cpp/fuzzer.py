@@ -115,13 +115,12 @@ class LibFuzzer(Fuzzer):
         self._proc = subprocess.Popen(
             cmd,
             stderr=open(_logfile or f"{self.path}.log", "wb"),
-            cwd=self._workdir,
             env={**os.environ, "LLVM_PROFILE_FILE": _profile},
         )
         if timeout is not None:
             self._timeout = time() + timeout
         if not wait_until_done:
-            return self.poll()
+            return None
         # wait until done
         try:
             self._proc.wait(timeout)
@@ -148,7 +147,23 @@ class LibFuzzer(Fuzzer):
         # clear
         self.clear()
         # return code if exists. otherwise, return timeouterror
-        return retn or TimeoutError(f"fuzzer process {self.path} timeout")
+        return (
+            retn
+            if isinstance(retn, int)
+            else TimeoutError(f"fuzzer process {self.path} timeout")
+        )
+
+    def halt(self) -> int | Exception:
+        """Stop the fuzzer.
+        Returnss:
+            int: return code of the fuzzer proces.
+            Exception: if the fuzzer process does not exist or timeout occured.
+        """
+        if (retn := self.poll()) is not None:
+            return retn
+        # kill the process
+        self.clear()
+        return TimeoutError(f"fuzzer process {self.path} timeout")
 
     def clear(self):
         """Clear the fuzzing process (kill the process if it is running)."""
@@ -183,6 +198,7 @@ class LibFuzzer(Fuzzer):
         itself: bool = False,
         target: str | None = None,
         _profile: str | None = None,
+        _remove_previous_profdata: bool = True,
     ) -> Coverage:
         """Collect the coverage w.r.t. the given library.
         Args:
@@ -196,6 +212,8 @@ class LibFuzzer(Fuzzer):
         # assign default value
         _profile = _profile or f"{self.path}.profraw"
         _merged = _profile.replace(".profraw", ".profdata")
+        if os.path.exists(_merged) and _remove_previous_profdata:
+            os.remove(_merged)
         # merge the raw profile
         try:
             run = subprocess.run(
