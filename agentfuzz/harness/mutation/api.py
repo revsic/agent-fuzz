@@ -4,7 +4,7 @@ import random
 from agentfuzz.analyzer import APIGadget, Coverage
 
 
-class APICombMutator:
+class APIMutator:
     """Mutator for API combination"""
 
     def __init__(
@@ -66,10 +66,10 @@ class APICombMutator:
         }
 
     @classmethod
-    def load(cls, dumps: str | dict) -> "APICombMutator":
+    def load(cls, dumps: str | dict) -> "APIMutator":
         """Load from the state.
         Args:
-            dumps: the dumped states from the method `APICombMutator.dump`.
+            dumps: the dumped states from the method `APIMutator.dump`.
         Returns:
             loaded api combination mutator.
         """

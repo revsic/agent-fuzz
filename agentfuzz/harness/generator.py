@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from agentfuzz.analyzer import Coverage, Factory, Fuzzer
 from agentfuzz.harness.agent import Agent
-from agentfuzz.harness.mutation.api import APICombMutator
+from agentfuzz.harness.mutation import APIMutator
 from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRenderer
 from agentfuzz.logger import Logger
 
@@ -142,7 +142,7 @@ class HarnessGenerator:
         if load_from_state and os.path.exists(_latest):
             trial, covered, api_mutator = self.load(_latest)
         else:
-            trial, covered, api_mutator = Trial(), Covered(), APICombMutator(targets)
+            trial, covered, api_mutator = Trial(), Covered(), APIMutator(targets)
 
         while not trial.converged and trial.cost < config.quota:
             # save the latest state
@@ -153,7 +153,7 @@ class HarnessGenerator:
             self.logger.log(f"Trial: {trial.trial}")
             apis = api_mutator.select(covered, *config.comblen)
             self.logger.log(
-                f"  APICombMutator.select: {json.dumps([g.signature() for g in apis], ensure_ascii=False)}"
+                f"  APIMutator.select: {json.dumps([g.signature() for g in apis], ensure_ascii=False)}"
             )
 
             # construct the prompt
@@ -309,7 +309,7 @@ class HarnessGenerator:
         self,
         trial: Trial,
         covered: Covered,
-        api_mutator: APICombMutator,
+        api_mutator: APIMutator,
         path: str | None = None,
     ):
         """Save the state of the harness generator.
@@ -336,7 +336,7 @@ class HarnessGenerator:
         return (
             Trial.load(latest["trial"]),
             Covered.load(latest["coverage"]),
-            APICombMutator.load(latest["mutator-api"]),
+            APIMutator.load(latest["mutator-api"]),
         )
 
     def _log_stats(self, trial: Trial, covered: Coverage, quota: float):
