@@ -4,6 +4,18 @@ from agentfuzz.analyzer.dynamic.coverage import Coverage
 class Fuzzer:
     """Executable fuzzer object."""
 
+    def minimize(self, corpus_dir: str, outdir: str):
+        """Minimize the corpus.
+        Args:
+            corpus_dir: a path to the directory containing fuzzing inputs (corpus).
+            outdir: a path to the directory to write a minimized corpus.
+                assume it as `os.path.join(self._workdir, f"{os.path.basename(corpus_dir)}_min)"` if it is not provided.
+        Returns:
+            a path to the directory where minimized corpus is written.
+                None if minimizing process is failed.
+        """
+        raise NotImplementedError("Fuzzer.minimize is not implemented.")
+
     def run(
         self,
         corpus_dir: str | None = None,

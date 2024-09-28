@@ -268,7 +268,11 @@ class HarnessGenerator:
             ## 3. Critcial Path Coverage
             start = time()
             cov_lib, cov_fuzz = Coverage(), Coverage()
-            # TODO: minimize corpus directory first
+            # minimize the corpus first
+            if minimized := fuzzer.minimize(corpus_dir, tempfile.mkdtemp()):
+                shutil.rmtree(corpus_dir)
+                shutil.move(minimized, corpus_dir)
+            # run individual corpora
             for corpora in tqdm(os.listdir(corpus_dir)):
                 _tempdir = tempfile.mkdtemp()
                 shutil.copy(

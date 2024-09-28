@@ -32,9 +32,7 @@ class LibFuzzer(Fuzzer):
         self._proc: subprocess.Popen | None = None
         self._timeout: float | None = None
 
-    def _minimize_corpus(
-        self, corpus_dir: str, outdir: str | None = None
-    ) -> str | None:
+    def minimize(self, corpus_dir: str, outdir: str | None = None) -> str | None:
         """Minimize the corpus with a `-merge=1` option.
         Args:
             corpus_dir: a path to the directory containing fuzzing inputs (corpus).
@@ -92,7 +90,7 @@ class LibFuzzer(Fuzzer):
         if corpus_dir is not None:
             if self.minimize_corpus:
                 # if successfully minimized
-                if minimized := self._minimize_corpus(corpus_dir):
+                if minimized := self.minimize(corpus_dir):
                     # TODO: Overwrite the minimized corpus to corpus_dir if `not _isolate_corpus_dir`
                     corpus_dir = minimized
             elif _isolate_copurs_dir:
