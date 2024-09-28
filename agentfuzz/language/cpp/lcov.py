@@ -3,7 +3,7 @@ import collections
 from tqdm.auto import tqdm
 
 
-def parse_lcov(lcov: str) -> dict[str, dict]:
+def parse_lcov(lcov: str, verbose: bool = False) -> dict[str, dict]:
     """Parse the lcov data.
     Args:
         lcov: file content of the lcov-format profiling coverage.
@@ -19,7 +19,9 @@ def parse_lcov(lcov: str) -> dict[str, dict]:
     assert all(file.startswith("SF:") for file, *_ in files)
 
     results = {}
-    for file, *contents in tqdm(files):
+    if verbose:
+        files = tqdm(files)
+    for file, *contents in files:
         filename = file[len("SF:") :]
         # template
         parsed = {
