@@ -39,7 +39,7 @@ class APIMutator:
             critical_path: the extracted critical path from the harness.
         """
         # TODO: Compute density
-        density = ...
+        density = 1.
         unique_branches = len(cov.flat(nonzero=True))
         quality = density * (1 + unique_branches)
         self.seeds.append(
