@@ -278,7 +278,7 @@ class APIMutator:
             return (1 - cov) / ((1 + seed) * (1 + prompt)) ** self.exponent
 
         return [
-            _energy(coverage.cover(g.name) or 0.0, cnt["seed"], cnt["prompt"])
+            _energy(coverage.cover_branch(g.name) or 0.0, cnt["seed"], cnt["prompt"])
             for g in self.gadgets
             if (cnt := self.counter[g.signature()])
         ]

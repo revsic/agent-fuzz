@@ -3,10 +3,12 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Coverage:
-    # list of coverages, {FUNCTION_NAME: {BRANCH_ID: #HIT}}
+    # list of branch coverages, {FUNCTION_NAME: {BRANCH_ID: #HIT}}
     functions: dict[str, dict[str, int]] = field(default_factory=dict)
+    # list of line coverages, {FILE_NAME: {str(LINENO): #HIT}}
+    lines: dict[str, dict[str, int]] = field(default_factory=dict)
 
-    def cover(self, fn: str) -> float | None:
+    def cover_branch(self, fn: str) -> float | None:
         """Return the branch coverage of the given function.
         Args:
             fn: the name of the given function.
@@ -18,6 +20,16 @@ class Coverage:
         return sum(hit > 0 for hit in self.functions[fn].values()) / len(
             self.functions[fn]
         )
+
+    def cover_lines(self, lineno: int, filename: str | None = None) -> bool | None:
+        """Return the line coverage of the given file.
+        Args:
+            lineno: the given line numbar.
+            filename: target file path.
+        Returns:
+            whether the given line is covered.
+        """
+        pass
 
     def flat(self, nonzero: bool = False) -> dict[str, int]:
         """Flatten the functions into a dictionary of branches and their hits.
@@ -34,7 +46,7 @@ class Coverage:
         }
 
     @property
-    def branch_coverage(self) -> float:
+    def coverage_branch(self) -> float:
         """Compute the branch coverage."""
         return len(self.flat(nonzero=True)) / len(self.flat(nonzero=False))
 
