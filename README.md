@@ -78,7 +78,7 @@ Dynamic analysis
 
 FP Elimination
 - [x] Runtime fuzzing validation: 60sec for cov growth, 600sec for corpus pool
-- [x] Runtime coverage validation: critical path check
+- [x] Runtime coverapge validation: critical path check
 - [x] Corpus reusage
 
 Agentic Fuzz-driver generation
@@ -91,3 +91,4 @@ Agentic Fuzz-driver generation
 - [ ] Agentic fuzz-driver generation
 - [x] State load and dump supports
 - [ ] Fuzzer fuser
+- [ ] Multiprocessing Support
