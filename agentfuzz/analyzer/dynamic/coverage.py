@@ -21,15 +21,17 @@ class Coverage:
             self.functions[fn]
         )
 
-    def cover_lines(self, lineno: int, filename: str | None = None) -> bool | None:
+    def cover_lines(self, filename: str, lineno: int) -> bool | None:
         """Return the line coverage of the given file.
         Args:
-            lineno: the given line numbar.
             filename: target file path.
+            lineno: the given line numbar.
         Returns:
             whether the given line is covered.
         """
-        pass
+        if filename not in self.lines:
+            return None
+        return self.lines[filename].get(str(lineno), 0) > 0
 
     def flat(self, nonzero: bool = False) -> dict[str, int]:
         """Flatten the functions into a dictionary of branches and their hits.

@@ -282,11 +282,11 @@ class HarnessGenerator:
                 path, gadgets=apis
             )
             validated_paths = [
-                path
-                for path in critical_paths
+                critical_path
+                for critical_path in critical_paths
                 if all(
-                    lineno is not None and cov_fuzz.cover_lines(lineno)
-                    for _, lineno in path
+                    lineno is not None and cov_fuzz.cover_lines(path, lineno)
+                    for _, lineno in critical_path
                 )
             ]
             if not validated_paths:
