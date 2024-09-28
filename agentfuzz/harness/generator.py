@@ -310,8 +310,9 @@ class HarnessGenerator:
                 critical_path
                 for critical_path in critical_paths
                 if all(
-                    lineno is not None and cov_fuzz.cover_lines(path, lineno)
+                    cov_fuzz.cover_lines(path, lineno)
                     for _, lineno in critical_path
+                    if lineno is not None
                 )
             ]
             if not validated_paths:

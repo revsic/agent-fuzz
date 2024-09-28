@@ -240,8 +240,15 @@ class ClangASTParser(ASTParser):
             return None
         (body,) = inner
         _, irs, *_ = body.split("|", maxsplit=2)
-        _debugs, result = meta.get("debugs", {}), []
+        _debugs, _sources = meta.get("debugs", {}), meta.get("source", "").split("\n")
+        # start to parse
+        result = []
         for ir in irs.strip("\\l").split("\\l"):
+            # find to find the originals
+            try:
+                ir = next(i for i in _sources if i.startswith(ir))
+            except:
+                pass
             if not (dbgs := re.findall(r"!dbg !(\d+)", ir)):
                 result.append((ir.strip(), None))
                 continue
