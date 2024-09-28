@@ -43,7 +43,7 @@ class Coverage:
         return {
             f"{fn=}/{branch=}": hit
             for fn, branches in self.functions.items()
-            for branch, hit in branches
+            for branch, hit in branches.items()
             if not nonzero or hit > 0
         }
 

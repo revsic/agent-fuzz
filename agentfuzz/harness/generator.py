@@ -8,7 +8,9 @@ from dataclasses import dataclass, asdict
 from time import sleep, time
 from uuid import uuid4
 
-from agentfuzz.analyzer import APIGadget, Coverage, Factory, Fuzzer
+from tqdm.auto import tqdm
+
+from agentfuzz.analyzer import Coverage, Factory, Fuzzer
 from agentfuzz.harness.agent import Agent
 from agentfuzz.harness.mutation import APIMutator
 from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRenderer
@@ -227,6 +229,7 @@ class HarnessGenerator:
                 trial.failure_compile += 1
                 self.logger.log(f"  Failed to compile the harness {trial.trial}: {e}")
                 continue
+
             self.logger.log(f"  Success to compile the code")
 
             ## 2. Coverage Growth
@@ -240,11 +243,14 @@ class HarnessGenerator:
                     runs=None,
                 )
                 last_cov = 0
+                # initial trial
+                sleep(config.timeout_unit)
                 while fuzzer.poll() is None:
                     if last_cov >= (current := fuzzer.track()):
                         break
                     last_cov = current
                     sleep(config.timeout_unit)
+                fuzzer.halt()
             except Exception as e:
                 with open(os.path.join(workdir, "failure_fuzzer.txt"), "w") as f:
                     f.write(traceback.format_exc())
@@ -260,10 +266,13 @@ class HarnessGenerator:
             self.logger.log(f"  Success to fuzz the code({time() - start:.2f}s)")
 
             ## 3. Critcial Path Coverage
+            start = time()
             cov_lib, cov_fuzz = Coverage(), Coverage()
-            for corpora in os.listdir(corpus_dir):
+            for corpora in tqdm(os.listdir(corpus_dir)):
                 _tempdir = tempfile.mkdtemp()
-                shutil.copy(corpora, os.path.join(_tempdir, corpora))
+                shutil.copy(
+                    os.path.join(corpus_dir, corpora), os.path.join(_tempdir, corpora)
+                )
                 try:
                     fuzzer.run(
                         _tempdir,
@@ -279,7 +288,7 @@ class HarnessGenerator:
                     continue
 
             self.logger.log(
-                f"  Success to extract the coverage(lib: {cov_lib.coverage_branch * 100:.2f}%, fuzzer: {cov_fuzz.coverage_branch * 100:.2f}%)"
+                f"  Success to extract the coverage({time() - start:.2f}s, lib: {cov_lib.coverage_branch * 100:.2f}%, fuzzer: {cov_fuzz.coverage_branch * 100:.2f}%)"
             )
 
             # check the harness validity
@@ -289,7 +298,7 @@ class HarnessGenerator:
                 self.logger.log(
                     f"  FP: Coverage did not grow (current: {cov_lib.coverage_branch * 100:.2f}%, global: {covered.coverage_branch * 100:.2f}%)"
                 )
-                break
+                continue
 
             self.logger.log(f"  Success to make the coverage growth")
 
@@ -308,7 +317,7 @@ class HarnessGenerator:
             if not validated_paths:
                 trial.failure_critical_path += 1
                 self.logger.log(f"  FP: Critical path did not hit, {critical_paths}")
-                break
+                continue
 
             self.logger.log(f"  Success to hit the full critical path")
 
