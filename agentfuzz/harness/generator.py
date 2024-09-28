@@ -281,9 +281,15 @@ class HarnessGenerator:
             critical_paths = self.factory.parser.extract_critical_path(
                 path, gadgets=apis
             )
-            if not (
-                validated_paths := self._check_critical_paths(cov_fuzz, critical_paths)
-            ):
+            validated_paths = [
+                path
+                for path in critical_paths
+                if all(
+                    lineno is not None and cov_fuzz.cover_lines(lineno)
+                    for _, lineno in path
+                )
+            ]
+            if not validated_paths:
                 trial.failure_critical_path += 1
                 self.logger.log(f"  FP: Critical path did not hit")
                 break
@@ -392,20 +398,6 @@ Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / trial.trial * 
         # split ext
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
-
-    def _check_critical_paths(
-        self,
-        cov: Coverage,
-        critical_paths: list[list[tuple[str | APIGadget, int | None]]],
-    ) -> list[list[tuple[str | APIGadget, int | None]]]:
-        """Check the given fuzzer hit the full critical path or not.
-        Args:
-            cov: a coverage descriptor of the fuzzer (not library coverage).
-            critical_paths: a list of api sequences that are extracted critical paths of the fuzzer harness.
-        Returns:
-            the list of fully covered critical paths.
-        """
-        return critical_paths
 
     def trial_converge(self, trial: Trial, cov: Covered) -> bool:
         """Check the generation trial converge.
