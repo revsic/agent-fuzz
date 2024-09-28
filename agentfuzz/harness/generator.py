@@ -133,6 +133,10 @@ class HarnessGenerator:
         # construct the work directory
         for dir_ in self._working_dirs:
             os.makedirs(dir_, exist_ok=True)
+        # isolate the corpus directory
+        corpus_dir = os.path.join(self.workdir, "corpus")
+        if not os.path.exists(corpus_dir):
+            shutil.copytree(config.corpus_dir, corpus_dir)
 
         # listup the apis and types
         targets, types = self.factory.listup_apis(), self.factory.listup_types()
@@ -226,7 +230,7 @@ class HarnessGenerator:
             ## 2. Coverage Growth
             try:
                 fuzzer.run(
-                    config.corpus_dir,
+                    corpus_dir,
                     config.fuzzdict,
                     wait_until_done=False,
                     timeout=config.timeout,
@@ -252,7 +256,7 @@ class HarnessGenerator:
 
             ## 3. Critcial Path Coverage
             cov_lib, cov_fuzz = Coverage(), Coverage()
-            for corpora in os.listdir(config.corpus_dir):
+            for corpora in os.listdir(corpus_dir):
                 _tempdir = tempfile.mkdtemp()
                 shutil.copy(corpora, os.path.join(_tempdir, corpora))
                 try:

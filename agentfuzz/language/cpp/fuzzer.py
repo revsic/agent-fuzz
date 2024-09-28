@@ -65,6 +65,7 @@ class LibFuzzer(Fuzzer):
         runs: int | None = None,
         _profile: str | None = None,
         _logfile: str | None = None,
+        _isolate_copurs_dir: bool = False,
     ) -> int | Exception | None:
         """Run the compiled harness with given corpus directory and the fuzzer dictionary.
         Args:
@@ -75,6 +76,7 @@ class LibFuzzer(Fuzzer):
             runs: the number of individual tests, None or -1 for indefinitely run.
             _profile: a path to the coverage profiling file, use `{self.path}.profraw` if it is not provided.
             _logfile: a path to the fuzzing log file, use `{self.path}.log` if it is not provided.
+            _isolate_corpus_dir: whether isolate the corpus directory or not.
         Returns:
             int: return code of the fuzzer process.
             None: if fuzzer process is running now.
@@ -87,7 +89,7 @@ class LibFuzzer(Fuzzer):
         if self._proc is not None:
             return self.poll()
         # isolate the corpus directory
-        if corpus_dir is not None:
+        if _isolate_copurs_dir and corpus_dir is not None:
             if self.minimize_corpus:
                 # if successfully minimized
                 if minimized := self._minimize_corpus(corpus_dir):
