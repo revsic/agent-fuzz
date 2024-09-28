@@ -42,8 +42,13 @@ class Fuzzer:
         """
         raise NotImplementedError("Fuzzer.track is not implemented.")
 
-    def coverage(self) -> Coverage:
-        """Collect the branch coverage of the last fuzzer run."""
+    def coverage(self, itself: bool = False) -> Coverage:
+        """Collect the branch coverage of the last fuzzer run.
+        Args:
+            itself: whether compute the coverage of the harness itself or target library.
+        Returns:
+            computed branch coverage
+        """
         raise NotImplementedError("Fuzzer.coverage is not implemented.")
 
 

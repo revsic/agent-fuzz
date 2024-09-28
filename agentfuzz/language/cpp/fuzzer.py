@@ -177,12 +177,19 @@ class LibFuzzer(Fuzzer):
         return int(cov)
 
     def coverage(
-        self, libpath: str | None = None, _profile: str | None = None
+        self,
+        itself: bool = False,
+        target: str | None = None,
+        _profile: str | None = None,
     ) -> Coverage:
         """Collect the coverage w.r.t. the given library.
         Args:
-            libpath: a path to the target library, assume it as `self.libpath` if it is not provided.
+            itself: whether compute the branch coverage of the harness itself or target library.
+            target: a path to the target library.
+                if it is not provided, assume it as `self.libpath` if `not itself`, otherwise `self.path`.
             _profile: a path to the coverage profiling file, assume it as f"{self.path}.profraw" if it is not provded.
+        Returns:
+            collected coverage.
         """
         # assign default value
         _profile = _profile or f"{self.path}.profraw"
@@ -204,7 +211,7 @@ class LibFuzzer(Fuzzer):
                 [
                     "llvm-cov",
                     "export",
-                    libpath or self.libpath,
+                    target or (self.path if itself else self.libpath),
                     "-format=lcov",
                     f"--instr-profile={_merged}",
                 ],
