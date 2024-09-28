@@ -102,7 +102,7 @@ class LibFuzzer(Fuzzer):
                 shutil.copytree(corpus_dir, _new_dir)
                 corpus_dir = _new_dir
         # prepare the arguments
-        cmd = [self.path]
+        cmd = [self.path, f"-artifact_prefix={self._workdir}/artifact/"]
         if corpus_dir is not None:
             cmd.append(corpus_dir)
         if fuzzdict is not None:
