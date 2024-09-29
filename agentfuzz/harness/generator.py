@@ -5,9 +5,8 @@ import shutil
 from dataclasses import dataclass, asdict
 
 from agentfuzz.analyzer import Coverage, Factory
-from agentfuzz.harness.agent import Agent
+from agentfuzz.harness.llm import LLMBaseline
 from agentfuzz.harness.mutation import APIMutator
-from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRenderer
 from agentfuzz.harness.validator import (
     HarnessValidator,
     ParseError,
@@ -75,7 +74,7 @@ class HarnessGenerator:
         self,
         factory: Factory,
         workdir: str | None = None,
-        prompt: str | PromptRenderer = BaselinePrompt(),
+        llm: LLMBaseline | None = None,
         logger: Logger | str | None = None,
         _clear_previous_work: bool = False,
     ):
@@ -84,21 +83,17 @@ class HarnessGenerator:
             factory: a project analyzer.
             workdir: a path to the working directory for harness generation pipeline.
                 use `factory.workdir` if it is not provided.
-            prompt: a prompt renderer for requesting a harness generation to the LLM.
+            llm: a llm for supporting harness generation.
             logger: a logger for harness generation, use `HarnessGenerator.DEFAULT_LOGGER` if it is not provided.
             _clear_previous_work: whether clear all previous works or not.
         """
         self.factory = factory
         self.workdir = workdir or factory.workdir
-        if isinstance(prompt, str):
-            assert (
-                prompt in PROMPT_SUPPORTS
-            ), f"invalid prompt name `{prompt}`, supports only `{', '.join(PROMPT_SUPPORTS)}`"
-            prompt = PROMPT_SUPPORTS[prompt]
-        self.prompt = prompt
+        self.llm = llm or LLMBaseline(factory)
         if isinstance(logger, str):
             logger = Logger(logger)
         self.logger = logger or self.DEFAULT_LOGGER
+
         # working directories
         self._dir_state = os.path.join(self.workdir, "state")
         self._dir_work = os.path.join(self.workdir, "work")
@@ -120,8 +115,6 @@ class HarnessGenerator:
             self._dir_failure_compile,
             self._dir_failure_fuzzer,
         ]
-        # TODO: temporal agent
-        self._default_agent = Agent(_stack=["HarnessGenerator"])
         # WARNING: all works could be deleted if the flag on
         if _clear_previous_work:
             for dir_ in self._working_dirs:
@@ -148,17 +141,17 @@ class HarnessGenerator:
             shutil.copytree(config.corpus_dir, corpus_dir)
 
         # listup the apis and types
-        targets, types = self.factory.listup_apis(), self.factory.listup_types()
+        apis, types = self.factory.listup_apis(), self.factory.listup_types()
 
         # construct mutator
         _latest = os.path.join(self._dir_state, "latest.json")
         if load_from_state and os.path.exists(_latest):
             trial, covered, api_mutator = self.load(_latest)
         else:
-            trial, covered, api_mutator = Trial(), Covered(), APIMutator(targets)
+            trial, covered, api_mutator = Trial(), Covered(), APIMutator(apis)
 
         # construct validator
-        validator = self.Validator(self.factory, targets, self.logger)
+        validator = self.Validator(self.factory, apis, self.logger)
 
         # start iteration
         while not trial.converged and trial.cost < config.quota:
@@ -168,30 +161,13 @@ class HarnessGenerator:
 
             trial.trial += 1
             self.logger.log(f"Trial: {trial.trial}")
-            apis = api_mutator.select(covered, *config.comblen)
+            targets = api_mutator.select(covered, *config.comblen)
             self.logger.log(
-                f"  APIMutator.select: {json.dumps([g.signature() for g in apis], ensure_ascii=False)}"
-            )
-
-            # construct the prompt
-            prompt = self.prompt.render(
-                project=config.name,
-                headers=[],  # TODO: Retrieve the system headers/imports
-                apis=(
-                    targets
-                    if len(targets) < config.max_apis
-                    else self._choose(targets, config.max_apis)
-                ),
-                types=[
-                    gadget
-                    for api in apis
-                    for gadget in self.factory.parser.retrieve_type(api, types)
-                ],
-                combinations=apis,
+                f"  APIMutator.select: {json.dumps([g.signature() for g in targets], ensure_ascii=False)}"
             )
 
             # generate the harness w/LLM
-            result = self._default_agent.run(config.llm, prompt)
+            result = self.llm.run(targets, apis, types)
             trial.cost += result.billing or 0.0
             if result.error:
                 trial.failure_agent += 1
