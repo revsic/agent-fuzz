@@ -166,17 +166,26 @@ class HarnessGenerator:
                 f"  APIMutator.select: {json.dumps([g.signature() for g in targets], ensure_ascii=False)}"
             )
 
+            # construct harness-level working directory
+            workdir = os.path.join(self._dir_work, str(trial.trial))
+            os.makedirs(workdir, exist_ok=True)
+
             # generate the harness w/LLM
-            result = self.llm.run(targets, apis, types)
+            result = self.llm.run(
+                targets,
+                apis,
+                types,
+                # metadata for agentic llm
+                workdir=os.path.join(workdir, "agent"),
+                cov=covered,
+                corpus_dir=corpus_dir,
+                fuzzdict=config.fuzzdict,
+            )
             trial.cost += result.billing or 0.0
             if result.error:
                 trial.failure_agent += 1
                 self.logger.log(f"  Failed to generate the harness: {result.error}")
                 break
-
-            # construct harness-level working directory
-            workdir = os.path.join(self._dir_work, str(trial.trial))
-            os.makedirs(workdir, exist_ok=True)
 
             # exception handler
             def _handle_error(errfile: str, error: str, errdir: str, log: str):

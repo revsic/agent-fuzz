@@ -46,6 +46,7 @@ class LLMBaseline:
         targets: list[APIGadget],
         apis: list[APIGadget] = [],
         types: list[TypeGadget] = [],
+        **kwargs,
     ) -> Agent.Response:
         """Render the given informations into an instruction prompt then request to LLM.
         Args:
