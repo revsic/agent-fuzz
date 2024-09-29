@@ -239,11 +239,7 @@ class HarnessGenerator:
 
                 case CriticalPathNotHit() as err:
                     trial.failure_critical_path += 1
-                    _name = lambda g: g if isinstance(g, str) else g.name
-                    _critical_paths = "\n  ".join(
-                        f"[{', '.join(_name(gadget) + label for gadget, _, label in critical_path)}]"
-                        for critical_path in err.critical_paths
-                    )
+                    _critical_paths = "\n  ".join(err._render())
                     msg = f"FP: Critical path did not hit,\n  {_critical_paths}"
                     _handle_error(
                         "failure_critical_path.txt", msg, self._dir_failure_fuzzer, msg

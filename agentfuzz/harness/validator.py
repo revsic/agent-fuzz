@@ -54,6 +54,13 @@ class CriticalPathNotHit(ValidationError):
 
     critical_paths: list[list[APIGadget | str, int | None, str]]
 
+    def _render(self) -> list[str]:
+        _name = lambda g: g if isinstance(g, str) else g.name
+        return [
+            f"[{', '.join(_name(gadget) + label for gadget, _, label in critical_path)}]"
+            for critical_path in self.critical_paths
+        ]
+
 
 @dataclass
 class Success:
