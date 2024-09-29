@@ -104,7 +104,7 @@ class APIMutator:
             [APIGadget.load(g) for g in dumps["gadgets"]],
             counter=dumps["counter"],
             seeds=dumps["seeds"],
-            exponent=dumps["deponent"],
+            exponent=dumps["exponent"],
         )
 
     ##### internal methods
