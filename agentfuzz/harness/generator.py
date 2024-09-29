@@ -329,7 +329,7 @@ class HarnessGenerator:
                     else (
                         "(invalid filename)"
                         if (c := cov_fuzz.cover_lines(path, l)) is None
-                        else ("hit" if c else "(miss)")
+                        else ("(hit)" if c else "(miss)")
                     )
                 )
                 _critical_paths = "\n    ".join(
@@ -411,8 +411,7 @@ class HarnessGenerator:
             f"""
 Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / max(trial.trial, 1) * 100:.4f}, Quota {trial.cost:.2f}/{quota}$)
   Coverage: branch {covered.coverage_branch * 100:.4f}%
-  Failure: agent {trial.failure_agent}, parse {trial.failure_parse}, compile: {trial.failure_compile}
-  Failure: fuzzer {trial.failure_fuzzer}, coverage {trial.failure_coverage}, critical-path: {trial.failure_critical_path}
+  Failure: agent {trial.failure_agent}, parse {trial.failure_parse}, compile: {trial.failure_compile}, fuzzer {trial.failure_fuzzer}, coverage {trial.failure_coverage}, critical-path: {trial.failure_critical_path}
 """.strip()
         )
 
