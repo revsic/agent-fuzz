@@ -268,13 +268,13 @@ class HarnessGenerator:
                     trial.success += 1
                     # copy the file
                     filename = f"{trial.trial}.{config.ext}"
-                    path = os.path.join(self._dir_harness, filename)
-                    shutil.copy(succ.path, path)
+                    filepath = os.path.join(self._dir_harness, filename)
+                    shutil.copy(succ.path, filepath)
                     # merge coverage
                     covered.merge(succ.cov_lib)
                     # append to mutator
                     for path in succ.validated_paths:
-                        api_mutator.append_seeds(path, succ.cov_lib, path)
+                        api_mutator.append_seeds(filepath, succ.cov_lib, path)
 
                     self.logger.log(
                         f"Success to generate the harness, written in harness/{filename}"
