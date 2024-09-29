@@ -86,6 +86,7 @@ class APIMutator:
             "gadgets": [g.dump() for g in self.gadgets],
             "counter": self.counter,
             "seeds": self.seeds,
+            "exponent": self.exponent,
         }
 
     @classmethod
@@ -103,6 +104,7 @@ class APIMutator:
             [APIGadget.load(g) for g in dumps["gadgets"]],
             counter=dumps["counter"],
             seeds=dumps["seeds"],
+            exponent=dumps["deponent"],
         )
 
     ##### internal methods
