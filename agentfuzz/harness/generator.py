@@ -359,5 +359,6 @@ Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / max(trial.tria
         Returns:
             whether harness generator enough to try or not.
         """
-        # trivial case
-        return trial.success > 0
+        # # trivial case
+        # return trial.success > 0
+        return False
