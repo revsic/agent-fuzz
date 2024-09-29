@@ -257,7 +257,7 @@ Create a C++ language program step by step by using {{PROJECT}} library APIs and
 6. Once you just need a string of file name, directly using "input_file" or "output_file" as the file name.
 7. Release all allocated resources before return.
 
-Before write a harness, call `find_definition`, `find_references and `read_file` to gain a sufficient understand of the project.
+Before write a harness, call `find_definition`, `find_references` and `read_file` to gain a sufficient understand of the project.
 
 After you write a fuzz harness, call `validate` to validate your harness.
 You should fix the harness to pass all validation steps in some iterations.
