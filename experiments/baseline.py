@@ -6,7 +6,7 @@ from agentfuzz.language import CppSupports
 if __name__ == "__main__":
     # target project
     _mother = os.path.abspath(f"{__file__}/../..")
-    build = os.path.abspath(f"{_mother}/project/cjson/workspace")
+    build = os.path.abspath(f"{_mother}/benchmark/cjson/workspace")
     # construct project
     workdir = f"./workspace/{datetime.now().strftime('%Y.%m.%dT%H:%M')}"
     project = CppSupports(
