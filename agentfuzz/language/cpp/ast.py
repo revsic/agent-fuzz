@@ -259,7 +259,7 @@ class ClangASTParser(ASTParser):
                 continue
             # parsed debug information
             (dbg,) = dbgs
-            if not (linenos := re.findall(r"line: (\d+)", _debugs.get(int(dbg)))):
+            if not (linenos := re.findall(r"line: (\d+)", _debugs.get(int(dbg), ""))):
                 result.append((ir.strip(), None))
                 continue
             (lineno,) = linenos
