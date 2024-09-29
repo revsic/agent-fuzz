@@ -2,18 +2,21 @@ import json
 import os
 import random
 import shutil
-import tempfile
-import traceback
 from dataclasses import dataclass, asdict
-from time import sleep, time
-from uuid import uuid4
 
-from tqdm.auto import tqdm
-
-from agentfuzz.analyzer import Coverage, Factory, Fuzzer
+from agentfuzz.analyzer import Coverage, Factory
 from agentfuzz.harness.agent import Agent
 from agentfuzz.harness.mutation import APIMutator
 from agentfuzz.harness.prompt import PROMPT_SUPPORTS, BaselinePrompt, PromptRenderer
+from agentfuzz.harness.validator import (
+    HarnessValidator,
+    ParseError,
+    CompileError,
+    FuzzerError,
+    CoverageNotGrow,
+    CriticalPathNotHit,
+    Success,
+)
 from agentfuzz.logger import Logger
 
 
@@ -60,6 +63,8 @@ class Covered(Coverage, _Serializable):
 
 class HarnessGenerator:
     """LLM Agent-based Harenss generation and fuzzing."""
+
+    Validator = HarnessValidator
 
     DEFAULT_LOGGER = Logger(
         os.environ.get("AGENTFUZZ_LOG_GENERATOR", "harness-gen.log"),
@@ -152,6 +157,10 @@ class HarnessGenerator:
         else:
             trial, covered, api_mutator = Trial(), Covered(), APIMutator(targets)
 
+        # construct validator
+        validator = self.Validator(self.factory, targets, self.logger)
+
+        # start iteration
         while not trial.converged and trial.cost < config.quota:
             # save the latest state
             self.dump(trial, covered, api_mutator, path=_latest)
@@ -189,173 +198,87 @@ class HarnessGenerator:
                 self.logger.log(f"  Failed to generate the harness: {result.error}")
                 break
 
-            # parse the code segment
-            code = self._parse_code(result.response)
-            if code is None:
-                trial.failure_parse += 1
-                uid = uuid4().hex
-                with open(os.path.join(self._dir_failure_parse, uid), "w") as f:
-                    f.write(result.response)
-                self.logger.log(f"  Failed to parse the code (written as {uid})")
-                continue
-
-            # unpack
-            _ext, code = code
-            # construct working directory
+            # construct harness-level working directory
             workdir = os.path.join(self._dir_work, str(trial.trial))
             os.makedirs(workdir, exist_ok=True)
-            # write the code
-            filename = f"{trial.trial}.{config.ext}".rstrip(".")
-            path = os.path.join(workdir, filename)
-            if os.path.exists(path):
-                self.logger.log(f"  WARNING: duplicated path, {path}")
-            with open(path, "w") as f:
-                f.write(code)
-            self.logger.log(
-                f"  Success to parse the code: work/{trial.trial}/{filename}"
-            )
 
-            # check the validity in runtime
-            ## 1. Compilability
-            fuzzer: Fuzzer
-            try:
-                fuzzer = self.factory.compiler.compile(path)
-            except Exception as e:
-                with open(os.path.join(workdir, "failure_compile.txt"), "w") as f:
-                    f.write(traceback.format_exc())
-                shutil.move(
-                    workdir, os.path.join(self._dir_failure_compile, str(trial.trial))
-                )
-                trial.failure_compile += 1
-                self.logger.log(f"  Failed to compile the harness {trial.trial}: {e}")
-                continue
+            # exception handler
+            def _handle_error(errfile: str, error: str, errdir: str, log: str):
+                with open(os.path.join(workdir, errfile), "w") as f:
+                    f.write(error)
+                shutil.move(workdir, os.path.join(errdir, str(trial.trial)))
+                self.logger.log(log)
 
-            self.logger.log(f"  Success to compile the code")
-
-            ## 2. Coverage Growth
-            try:
-                start = time()
-                fuzzer.run(
-                    corpus_dir,
-                    config.fuzzdict,
-                    wait_until_done=False,
-                    timeout=config.timeout,
-                    runs=None,
-                )
-                last_cov = 0
-                # initial trial
-                sleep(config.timeout_unit)
-                while fuzzer.poll() is None:
-                    if last_cov >= (current := fuzzer.track()):
-                        break
-                    last_cov = current
-                    sleep(config.timeout_unit)
-                fuzzer.halt()
-            except Exception as e:
-                with open(os.path.join(workdir, "failure_fuzzer.txt"), "w") as f:
-                    f.write(traceback.format_exc())
-                shutil.move(
-                    workdir, os.path.join(self._dir_failure_fuzzer, str(trial.trial))
-                )
-                trial.failure_fuzzer += 1
-                self.logger.log(
-                    f"  Failed to run the fuzzer {trial.trial} ({time() - start:.2f}s): {e}"
-                )
-                continue
-
-            self.logger.log(f"  Success to fuzz the code({time() - start:.2f}s)")
-
-            ## 3. Critcial Path Coverage
-            start = time()
-            cov_lib, cov_fuzz = Coverage(), Coverage()
-            # minimize the corpus first
-            if minimized := fuzzer.minimize(corpus_dir, tempfile.mkdtemp()):
-                shutil.rmtree(corpus_dir)
-                shutil.move(minimized, corpus_dir)
-            # run individual corpora
-            for corpora in tqdm(os.listdir(corpus_dir)):
-                _tempdir = tempfile.mkdtemp()
-                shutil.copy(
-                    os.path.join(corpus_dir, corpora), os.path.join(_tempdir, corpora)
-                )
-                try:
-                    fuzzer.run(
-                        _tempdir,
-                        config.fuzzdict,
-                        wait_until_done=True,
-                        timeout=None,
-                        runs=0,
+            # validate
+            match validator.validate(
+                result.response,
+                covered,
+                workdir,
+                corpus_dir,
+                config.fuzzdict,
+                verbose=True,
+            ):
+                case ParseError() as err:
+                    trial.failure_parse += 1
+                    _handle_error(
+                        "failure_parse.txt",
+                        err.description,
+                        self._dir_failure_parse,
+                        f"Failed to parse the code: work/{trial.trial}",
                     )
-                    cov_lib.merge(fuzzer.coverage())
-                    cov_fuzz.merge(fuzzer.coverage(itself=True))
-                except Exception as e:
-                    self.logger.log(f"  Failed to run the corpora {corpora}: {e}")
-                    continue
 
-            self.logger.log(
-                f"  Success to extract the coverage({time() - start:.2f}s, lib: {cov_lib.coverage_branch * 100:.2f}%, fuzzer: {cov_fuzz.coverage_branch * 100:.2f}%)"
-            )
-
-            # check the harness validity
-            ## A. branch coverage growth
-            if not (set(cov_lib.flat(nonzero=True)) - set(covered.flat(nonzero=True))):
-                trial.failure_coverage += 1
-                self.logger.log(
-                    f"  FP: Coverage did not grow (current: {cov_lib.coverage_branch * 100:.2f}%, global: {covered.coverage_branch * 100:.2f}%)"
-                )
-                continue
-
-            self.logger.log(f"  Success to make the coverage growth")
-
-            ## B. critical path coverage
-            critical_paths = self.factory.parser.extract_critical_path(
-                path, gadgets=apis
-            )
-            validated_paths = [
-                critical_path
-                for critical_path in critical_paths
-                if all(
-                    cov_fuzz.cover_lines(path, lineno)
-                    for _, lineno in critical_path
-                    if lineno is not None
-                )
-            ]
-            if not validated_paths:
-                trial.failure_critical_path += 1
-                _name = lambda g: g if isinstance(g, str) else g.name
-                _hit = lambda l: (
-                    "(invalid lineno)"
-                    if l is None
-                    else (
-                        "(invalid filename)"
-                        if (c := cov_fuzz.cover_lines(path, l)) is None
-                        else ("(hit)" if c else "(miss)")
+                case CompileError() as err:
+                    trial.failure_compile += 1
+                    _handle_error(
+                        "failure_compile.txt",
+                        err.traceback,
+                        self._dir_failure_compile,
+                        f"Failed to compile the harness {trial.trial}: {err.compile_error}",
                     )
-                )
-                _critical_paths = "\n    ".join(
-                    f"[{', '.join(_name(gadget) + _hit(lineno) for gadget, lineno in critical_path)}]"
-                    for critical_path in critical_paths
-                )
-                self.logger.log(
-                    f"  FP: Critical path did not hit,\n    {_critical_paths}"
-                )
-                continue
 
-            self.logger.log(f"  Success to hit the full critical path")
+                case FuzzerError() as err:
+                    trial.failure_fuzzer += 1
+                    _handle_error(
+                        "failure_fuzzer.txt",
+                        err.traceback,
+                        self._dir_failure_fuzzer,
+                        f"Failed to run the fuzzer {trial.trial}: {err.exception}",
+                    )
 
-            # on success
-            path = os.path.join(self._dir_harness, filename)
-            with open(path, "w") as f:
-                f.write(code)
+                case CoverageNotGrow() as err:
+                    trial.failure_coverage += 1
+                    msg = f"FP: Critical path did not grow, current: {err.cov_local * 100:.2f}%, global: {err.cov_global * 100:.2f}%"
+                    _handle_error(
+                        "failure_cov_growth.txt", msg, self._dir_failure_fuzzer, msg
+                    )
 
-            trial.success += 1
-            covered.merge(cov_lib)
-            for path in validated_paths:
-                api_mutator.append_seeds(path, cov_lib, path)
+                case CriticalPathNotHit() as err:
+                    trial.failure_critical_path += 1
+                    _name = lambda g: g if isinstance(g, str) else g.name
+                    _critical_paths = "\n  ".join(
+                        f"[{', '.join(_name(gadget) + label for gadget, _, label in critical_path)}]"
+                        for critical_path in err.critical_paths
+                    )
+                    msg = f"FP: Critical path did not hit,\n  {_critical_paths}"
+                    _handle_error(
+                        "failure_critical_path.txt", msg, self._dir_failure_fuzzer, msg
+                    )
 
-            self.logger.log(
-                f"Success to generate the harness, written in harness/{filename}"
-            )
+                case Success() as succ:
+                    trial.success += 1
+                    # copy the file
+                    filename = f"{trial.trial}.{config.ext}"
+                    path = os.path.join(self._dir_harness, filename)
+                    shutil.copy(succ.path, path)
+                    # merge coverage
+                    covered.merge(succ.cov_lib)
+                    # append to mutator
+                    for path in succ.validated_paths:
+                        api_mutator.append_seeds(path, succ.cov_lib, path)
+
+                    self.logger.log(
+                        f"Success to generate the harness, written in harness/{filename}"
+                    )
 
             # stop condition check
             if self.trial_converge(trial, covered) or api_mutator.converge():
