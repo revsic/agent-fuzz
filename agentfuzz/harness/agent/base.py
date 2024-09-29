@@ -84,9 +84,13 @@ class Agent:
                 error=msg,
             )
         # convert into json schema
-        converted = {
-            key: litellm.utils.function_to_dict(fn) for key, fn in tools.items()
-        }
+        converted = [
+            {
+                "type": "function",
+                "function": litellm.utils.function_to_dict(fn)
+            }
+            for fn in tools.values()
+        ]
         for turn in range(max_turns):
             # call LLM
             response = litellm.completion(
