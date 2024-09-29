@@ -45,7 +45,7 @@ class CppFactory(Factory):
             for dir_ in include_dir
             for root, _, files in os.walk(dir_)
             for filename in files
-            if filename.endswith(self.config.postfix)
+            if filename.endswith(tuple(self.config.postfix))
         ]
 
 
@@ -85,4 +85,4 @@ class CppSupports(LanguageSupports):
             projdir: a path to the project directory.
             config: a path to the configuration file, yaml format.
         """
-        return cls(projdir, cls.Config.load_from_yaml(config))
+        return cls(projdir, cls._Config.load_from_yaml(config))

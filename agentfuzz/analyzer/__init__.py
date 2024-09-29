@@ -45,7 +45,7 @@ class Factory:
             os.path.join(root, filename)
             for root, _, files in os.walk(self.config.srcdir)
             for filename in files
-            if filename.endswith(self.config.postfix)
+            if filename.endswith(tuple(self.config.postfix))
         ]
 
     def listup_apis(self) -> list[APIGadget]:

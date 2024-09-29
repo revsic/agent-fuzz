@@ -1,6 +1,9 @@
 # test purpose
 project
 workspace
+*.profraw
+*.profdata
+output_file
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

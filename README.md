@@ -44,7 +44,7 @@ Run the agent fuzz, reference sample [benchmark/cjson/config](./benchmark/cjson/
 ```bash
 cd benchmark/cjson
 OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
-    --language cpp \
+    --language c/cpp \
     --workdir workspace/agentfuzz \
     --config config.yaml
 ```
