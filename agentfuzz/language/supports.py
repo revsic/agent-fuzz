@@ -30,10 +30,13 @@ class LanguageSupports:
         try:
             g = self._Generator(self.factory, self.workdir, logger=logger)
             g.run(load_from_state)
-        except:
+        except Exception as e:
             os.makedirs(self.workdir, exist_ok=True)
             with open(os.path.join(self.workdir, "exception.log"), "w") as f:
                 f.write(traceback.format_exc())
+            raise RuntimeError(
+                "LanguageSupports.run: failed to run the iteration"
+            ) from e
 
     @classmethod
     def from_yaml(cls, workdir: str, config: str) -> "LanguageSupports":
