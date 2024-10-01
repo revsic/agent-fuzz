@@ -49,7 +49,7 @@ class Agent:
         Returns:
             pricing if computable, otherwise None.
         """
-        if not response.model not in PRICING:
+        if response.model not in PRICING:
             return None
 
         per_input, per_output = PRICING[response.model]
@@ -119,6 +119,7 @@ class Agent:
             {"type": "function", "function": litellm.utils.function_to_dict(fn)}
             for fn in tools.values()
         ]
+        total_price = None
         for turn in range(max_turns):
             # call LLM
             response = litellm.completion(
@@ -132,13 +133,15 @@ class Agent:
             (choice,) = response.choices
             self.logger.log(response.model_dump())
             messages.append(choice.message.model_dump())
+            if (_price := self._compute_pricing(response)) is not None:
+                total_price = (total_price or 0.0) + _price
             # if agent does not call the functions/tools
             if choice.message.tool_calls is None:
                 return self.Response(
                     response=choice.message.content,
                     messages=messages,
                     turn=turn,
-                    billing=self._compute_pricing(response),
+                    billing=total_price,
                 )
             # for supporting parallel tool calls
             for req in choice.message.tool_calls:
@@ -184,4 +187,5 @@ class Agent:
             messages=messages,
             turn=max_turns,
             error=msg,
+            billing=total_price,
         )
