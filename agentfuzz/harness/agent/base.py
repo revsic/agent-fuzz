@@ -128,7 +128,6 @@ class Agent:
                 tool_choice="auto",
                 temperature=temperature,
                 seed=_seed,
-                billing=self._compute_pricing(response),
             )
             (choice,) = response.choices
             self.logger.log(response.model_dump())
@@ -139,6 +138,7 @@ class Agent:
                     response=choice.message.content,
                     messages=messages,
                     turn=turn,
+                    billing=self._compute_pricing(response),
                 )
             # for supporting parallel tool calls
             for req in choice.message.tool_calls:
