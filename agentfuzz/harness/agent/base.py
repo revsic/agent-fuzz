@@ -5,6 +5,19 @@ import litellm
 
 from agentfuzz.harness.agent.logger import AgentLogger
 
+# dollars per token, (input tokens, output tokens)
+_million = 1_000_000
+PRICING = {
+    "gpt-4o-mini": (0.150 / _million, 0.600 / _million),
+    "gpt-4o-mini-2024-07-18": (0.150 / _million, 0.600 / _million),
+    "gpt-4o": (5.0 / _million, 15.00 / _million),
+    "gpt-4o-2024-08-06": (2.50 / _million, 10.00 / _million),
+    "gpt-4o-2024-05-13": (5.00 / _million, 15.00 / _million),
+    "chatgpt-4o-latest": (5.00 / _million, 15.00 / _million),
+    "gpt-4-turbo": (10.00 / _million, 30.00 / _million),
+    "gpt-4-turbo-2024-04-09": (10.00 / _million, 30.00 / _million),
+}
+
 
 class Agent:
     """Template for a LLM Agent."""
@@ -15,7 +28,6 @@ class Agent:
         messages: list[dict[str, str]]
         turn: int | None
         error: str | None = None
-        # TODO: cost tracking supports
         billing: float | None = None
 
     def __init__(
@@ -27,6 +39,24 @@ class Agent:
         """
         self.logger = logger or AgentLogger.DEFAULT
         self._stack = _stack
+
+    def _compute_pricing(
+        self, response: litellm.types.utils.ModelResponse
+    ) -> float | None:
+        """Compute the pricing from the response.
+        Args:
+            response: litellm response.
+        Returns:
+            pricing if computable, otherwise None.
+        """
+        if not response.model not in PRICING:
+            return None
+
+        per_input, per_output = PRICING[response.model]
+        return (
+            per_input * response.usage.prompt_tokens
+            + per_output * response.usage.completion_tokens
+        )
 
     def run(
         self,
@@ -71,6 +101,7 @@ class Agent:
                 response=choice.message.content,
                 messages=messages + [choice.message.model_dump()],
                 turn=None,
+                billing=self._compute_pricing(response),
             )
 
         # check whether the given model supports function calling API.
@@ -85,10 +116,7 @@ class Agent:
             )
         # convert into json schema
         converted = [
-            {
-                "type": "function",
-                "function": litellm.utils.function_to_dict(fn)
-            }
+            {"type": "function", "function": litellm.utils.function_to_dict(fn)}
             for fn in tools.values()
         ]
         for turn in range(max_turns):
@@ -100,6 +128,7 @@ class Agent:
                 tool_choice="auto",
                 temperature=temperature,
                 seed=_seed,
+                billing=self._compute_pricing(response),
             )
             (choice,) = response.choices
             self.logger.log(response.model_dump())
