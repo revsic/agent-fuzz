@@ -2,9 +2,9 @@ import json
 import os
 import random
 import shutil
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass, field
 
-from agentfuzz.analyzer import Coverage, Factory
+from agentfuzz.analyzer import APIGadget, Coverage, Factory
 from agentfuzz.harness.llm import LLMBaseline
 from agentfuzz.harness.mutation import APIMutator
 from agentfuzz.harness.validator import (
@@ -57,8 +57,10 @@ class Trial(_Serializable):
 
 
 @dataclass
-class Covered(Coverage, _Serializable):
-    pass
+class Covered(_Serializable):
+    global_: Coverage = field(default_factory=Coverage)
+    prompted: Coverage = field(default_factory=Coverage)
+    executed: Coverage = field(default_factory=Coverage)
 
 
 class HarnessGenerator:
@@ -162,7 +164,10 @@ class HarnessGenerator:
 
             trial.trial += 1
             self.logger.log(f"Trial: {trial.trial}")
-            targets = api_mutator.select(covered, *config.comblen)
+            targets = api_mutator.select(covered.global_, *config.comblen)
+            covered.prompted.merge(
+                Coverage({fn.signature(): {"HIT": 1} for fn in targets})
+            )
             self.logger.log(
                 f"  APIMutator.select: {json.dumps([g.signature() for g in targets], ensure_ascii=False)}"
             )
@@ -178,7 +183,7 @@ class HarnessGenerator:
                 types,
                 # metadata for agentic llm
                 workdir=os.path.join(workdir, "agent"),
-                cov=covered,
+                cov=covered.global_,
                 corpus_dir=corpus_dir,
                 fuzzdict=config.fuzzdict,
             )
@@ -199,7 +204,7 @@ class HarnessGenerator:
             # validate
             match validator.validate(
                 result.response,
-                covered,
+                covered.global_,
                 workdir,
                 corpus_dir,
                 config.fuzzdict,
@@ -254,7 +259,17 @@ class HarnessGenerator:
                     filepath = os.path.join(self._dir_harness, filename)
                     shutil.copy(succ.path, filepath)
                     # merge coverage
-                    covered.merge(succ.cov_lib)
+                    covered.global_.merge(succ.cov_lib)
+                    covered.executed.merge(
+                        Coverage(
+                            {
+                                item.signature(): {"HIT": 1}
+                                for path in succ.validated_paths
+                                for item in path
+                                if isinstance(item, APIGadget)
+                            }
+                        )
+                    )
                     # append to mutator
                     for path in succ.validated_paths:
                         api_mutator.append_seeds(filepath, succ.cov_lib, path)
@@ -307,7 +322,7 @@ class HarnessGenerator:
             APIMutator.load(latest["mutator-api"]),
         )
 
-    def _log_stats(self, trial: Trial, covered: Coverage, quota: float):
+    def _log_stats(self, trial: Trial, covered: Covered, quota: float):
         """Log the current statistics.
         Args:
             trial, covered: generation trials and the global coverages.
@@ -316,7 +331,7 @@ class HarnessGenerator:
         self.logger.log(
             f"""
 Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / max(trial.trial, 1) * 100:.4f}, Quota {trial.cost:.2f}/{quota}$, Call LLM {trial.llm_call} times)
-  Coverage: branch {covered.coverage_branch * 100:.4f}%
+  Coverage: branch {covered.global_.coverage_branch * 100:.4f}% (called api: {covered.prompted.coverage_branch * 100:.2f}%, executed api: {covered.executed.coverage_branch * 100:.2f}%)
   Failure: agent {trial.failure_agent}, parse {trial.failure_parse}, compile: {trial.failure_compile}, fuzzer {trial.failure_fuzzer}, coverage {trial.failure_coverage}, critical-path: {trial.failure_critical_path}
 """.strip()
         )
