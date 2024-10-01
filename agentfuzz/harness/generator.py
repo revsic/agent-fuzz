@@ -152,6 +152,12 @@ class HarnessGenerator:
             trial, covered, api_mutator = self.load(_latest)
         else:
             trial, covered, api_mutator = Trial(), Covered(), APIMutator(apis)
+            covered.prompted.merge(
+                Coverage({api.signature(): {"HIT": 0} for api in apis})
+            )
+            covered.executed.merge(
+                Coverage({api.signature(): {"HIT": 0} for api in apis})
+            )
 
         # construct validator
         validator = self.Validator(self.factory, apis, self.logger)
@@ -260,16 +266,15 @@ class HarnessGenerator:
                     shutil.copy(succ.path, filepath)
                     # merge coverage
                     covered.global_.merge(succ.cov_lib)
-                    covered.executed.merge(
-                        Coverage(
-                            {
-                                item.signature(): {"HIT": 1}
-                                for path in succ.validated_paths
-                                for item in path
-                                if isinstance(item, APIGadget)
-                            }
-                        )
-                    )
+                    # log executed api
+                    _executed = {
+                        item.signature(): {"HIT": 1}
+                        for path in succ.validated_paths
+                        for item in path
+                        if isinstance(item, APIGadget)
+                    }
+                    self.logger.log(f"  Executed API: {', '.join(_executed)}")
+                    covered.executed.merge(Coverage(_executed))
                     # append to mutator
                     for path in succ.validated_paths:
                         api_mutator.append_seeds(filepath, succ.cov_lib, path)
@@ -330,7 +335,7 @@ class HarnessGenerator:
         """
         self.logger.log(
             f"""
-Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / max(trial.trial, 1) * 100:.4f}, Quota {trial.cost:.2f}/{quota}$, Call LLM {trial.llm_call} times)
+Success: {trial.success}/{trial.trial} (TP Rate: {trial.success / max(trial.trial, 1) * 100:.4f}, Quota {trial.cost:.6f}/{quota}$, Call LLM {trial.llm_call} times)
   Coverage: branch {covered.global_.coverage_branch * 100:.4f}% (called api: {covered.prompted.coverage_branch * 100:.2f}%, executed api: {covered.executed.coverage_branch * 100:.2f}%)
   Failure: agent {trial.failure_agent}, parse {trial.failure_parse}, compile: {trial.failure_compile}, fuzzer {trial.failure_fuzzer}, coverage {trial.failure_coverage}, critical-path: {trial.failure_critical_path}
 """.strip()
