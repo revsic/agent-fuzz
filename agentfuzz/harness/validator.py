@@ -52,7 +52,7 @@ class CoverageNotGrow(ValidationError):
 class CriticalPathNotHit(ValidationError):
     """If a parsed critical path is not fully covered by the fuzzer run"""
 
-    critical_paths: list[list[APIGadget | str, int | None, str]]
+    critical_paths: list[list[tuple[APIGadget | str, int | None, str]]]
 
     def _render(self) -> list[str]:
         _name = lambda g: g if isinstance(g, str) else g.name
@@ -70,7 +70,7 @@ class Success:
     fuzzer: Fuzzer
     cov_lib: Coverage
     cov_fuzz: Coverage
-    validated_paths: list[list[APIGadget | str, int | None]]
+    validated_paths: list[list[tuple[APIGadget | str, int | None]]]
 
 
 class HarnessValidator:
@@ -328,7 +328,7 @@ class HarnessValidator:
         path: str,
         cov: Coverage,
         gadgets: list[APIGadget] | None = None,
-    ) -> list[list[str | APIGadget, int | None]] | CriticalPathNotHit:
+    ) -> list[list[tuple[str | APIGadget, int | None]]] | CriticalPathNotHit:
         """Check whether the fuzzer cover full critical path.
         Args:
             path: a path to the source code file.

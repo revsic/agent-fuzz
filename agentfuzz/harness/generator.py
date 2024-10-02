@@ -270,7 +270,7 @@ class HarnessGenerator:
                     _executed = {
                         item.signature(): {"HIT": 1}
                         for path in succ.validated_paths
-                        for item in path
+                        for item, _ in path
                         if isinstance(item, APIGadget)
                     }
                     self.logger.log(f"  Executed API: {', '.join(_executed)}")
