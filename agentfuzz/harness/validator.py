@@ -283,28 +283,37 @@ class HarnessValidator:
             shutil.rmtree(corpus_dir)
             shutil.move(minimized, corpus_dir)
         # run individual corpora
-        _corpus = os.listdir(corpus_dir)
-        if verbose:
-            _corpus = tqdm(_corpus)
-        for corpora in _corpus:
-            _tempdir = tempfile.mkdtemp()
+        _corpus_dirs = []
+        _workdir = tempfile.mkdtemp()
+        for corpora in os.listdir(corpus_dir):
+            _corpus_dir = os.path.join(_workdir, corpora)
+            os.makedirs(_corpus_dir, exist_ok=True)
             shutil.copy(
-                os.path.join(corpus_dir, corpora), os.path.join(_tempdir, corpora)
+                os.path.join(corpus_dir, corpora),
+                os.path.join(_corpus_dir, "CORPORA"),
             )
-            try:
-                fuzzer.run(
-                    _tempdir,
-                    fuzzdict,
-                    wait_until_done=True,
-                    timeout=None,
-                    runs=0,
-                )
-                cov_lib.merge(fuzzer.coverage())
-                cov_fuzz.merge(fuzzer.coverage(itself=True))
-            except Exception as e:
+            _corpus_dirs.append(_corpus_dir)
+        # batch supports
+        iter_ = fuzzer.batch_run(
+            _corpus_dirs,
+            batch_size=4,
+            fuzzdict=fuzzdict,
+            timeout=None,
+            runs=1,
+            return_cov=True,
+        )
+        if verbose:
+            iter_ = tqdm(iter_)
+        for _corpus_dir, retn, covs in iter_:
+            if covs is None:
                 if self.logger is not None:
-                    self.logger.log(f"Failed to run the corpora {corpora}: {e}")
+                    corpora = os.path.basename(_corpus_dir)
+                    self.logger.log(f"Failed to run the corpora {corpora}: {retn}")
                 continue
+            # merge to global cov
+            _cov_lib, _cov_fuzz = covs
+            cov_lib.merge(_cov_lib)
+            cov_fuzz.merge(_cov_fuzz)
 
         return cov_lib, cov_fuzz
 

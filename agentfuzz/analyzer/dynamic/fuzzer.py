@@ -1,3 +1,5 @@
+from typing import Iterator
+
 from agentfuzz.analyzer.dynamic.coverage import Coverage
 
 
@@ -15,6 +17,46 @@ class Fuzzer:
                 None if minimizing process is failed.
         """
         raise NotImplementedError("Fuzzer.minimize is not implemented.")
+
+    def batch_run(
+        self,
+        corpus_dirs: list[str],
+        batch_size: int,
+        fuzzdict: str | None = None,
+        timeout: float | None = 300,
+        runs: int | None = None,
+        return_cov: bool = True,
+    ) -> Iterator[tuple[str, int | Exception, tuple[Coverage, Coverage] | None]]:
+        """Run the compiled harness in batch.
+        Args:
+            corpus_dirs: a list of corpus directories.
+            batch_size: the desired concurrency level, maybe a size of the batch, or the number of the process.
+            fuzzdict: a path to the fuzzing dictionary file.
+            timeout: the maximum running time in seconds, None or indefinitely run.
+            runs: the number of individual tests, None for indefinitely run.
+            return_cov: whether return the coverage descriptors or not.
+        Returns:
+            str: a path to the corpus directory.
+            int | Exception: the return code or the exceptions during run the fuzzer.
+            tuple[Coverage, Coverage]: the coverage descriptors about library and fuzzer-itself.
+        """
+        for corpus_dir in corpus_dirs:
+            try:
+                retn = self.run(
+                    corpus_dir,
+                    fuzzdict,
+                    wait_until_done=True,
+                    timeout=timeout,
+                    runs=runs,
+                )
+            except Exception as e:
+                yield corpus_dir, e, None
+            if not return_cov:
+                yield corpus_dir, retn, None
+
+            cov_lib = self.coverage()
+            cov_fuzz = self.coverage(itself=True)
+            yield corpus_dir, retn, (cov_lib, cov_fuzz)
 
     def run(
         self,
