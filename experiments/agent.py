@@ -27,6 +27,7 @@ class AgentHarnessGeneration(Agent):
         factory: Factory,
         agent_logger: AgentLogger | str | None = None,
         valid_logger: Logger | str | None = None,
+        batch_size: int | None = None,
     ):
         """Initialize agent.
         Args:
@@ -40,6 +41,7 @@ class AgentHarnessGeneration(Agent):
             valid_logger = Logger(valid_logger)
         self.state = {}
         self.validator = HarnessValidator(factory, logger=valid_logger)
+        self.batch_size = batch_size
         super().__init__(agent_logger)
 
     def tools(self):
@@ -169,6 +171,7 @@ class AgentHarnessGeneration(Agent):
             self.state.get("workdir") or tempfile.mkdtemp(),
             self.state.get("corpus_dir"),
             self.state.get("fuzzdict"),
+            batch_size=self.batch_size,
         ):
             case ParseError() as err:
                 return {"error": "parse", "description": err.description}

@@ -94,6 +94,7 @@ class HarnessValidator:
         corpus_dir: str | None = None,
         fuzzdict: str | None = None,
         verbose: bool = False,
+        batch_size: int | None = None,
     ) -> ValidationError | Success:
         """Validate a requested harness.
         Args:
@@ -159,6 +160,7 @@ class HarnessValidator:
             corpus_dir or config.corpus_dir,
             fuzzdict or config.fuzzdict,
             verbose=verbose,
+            batch_size=batch_size,
         )
         if self.logger is not None:
             self.logger.log(
@@ -268,6 +270,7 @@ class HarnessValidator:
         corpus_dir: str | None = None,
         fuzzdict: str | None = None,
         verbose: bool = False,
+        batch_size: int | None = None,
     ) -> tuple[Coverage, Coverage]:
         """Check the fuzzer can be run without errors.
         Args:
@@ -296,7 +299,7 @@ class HarnessValidator:
         # batch supports
         iter_ = fuzzer.batch_run(
             _corpus_dirs,
-            batch_size=4,
+            batch_size=batch_size or os.cpu_count(),
             fuzzdict=fuzzdict,
             timeout=None,
             runs=1,

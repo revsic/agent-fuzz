@@ -1,7 +1,10 @@
+import multiprocessing as mp
 import os
 import shutil
 import subprocess
+import tempfile
 from time import time
+from typing import Iterator
 
 from agentfuzz.analyzer import Coverage, Fuzzer
 from agentfuzz.language.cpp.lcov import parse_lcov
@@ -135,6 +138,38 @@ class LibFuzzer(Fuzzer):
         # hard clear (for preventing process miss-clear)
         self.clear()
         return retn
+
+    def batch_run(
+        self,
+        corpus_dirs: list[str],
+        batch_size: int,
+        fuzzdict: str | None = None,
+        timeout: float | None = 300,
+        runs: int | None = None,
+        return_cov: bool = True,
+    ) -> Iterator[tuple[str, int | Exception, tuple[Coverage, Coverage] | None]]:
+        """Run the compiled harness in batch.
+        Args:
+            corpus_dirs: a list of corpus directories.
+            batch_size: the desired concurrency level, maybe a size of the batch, or the number of the process.
+            fuzzdict: a path to the fuzzing dictionary file.
+            timeout: the maximum running time in seconds, None or indefinitely run.
+            runs: the number of individual tests, None for indefinitely run.
+            return_cov: whether return the coverage descriptors or not.
+        Returns:
+            str: a path to the corpus directory.
+            int | Exception: the return code or the exceptions during run the fuzzer.
+            tuple[Coverage, Coverage]: the coverage descriptors about library and fuzzer-itself.
+        """
+        with mp.Pool(batch_size) as pool:
+            yield from pool.imap_unordered(
+                _batch_run_proxy,
+                [
+                    (self, corpus_dir, fuzzdict, timeout, runs, return_cov)
+                    for corpus_dir in corpus_dirs
+                ],
+                chunksize=batch_size * 2,
+            )
 
     def poll(self) -> int | None | Exception:
         """Poll the return code of the fuzzer process and clear if process done.
@@ -273,3 +308,42 @@ class LibFuzzer(Fuzzer):
                 )
             )
         return packed
+
+
+def _batch_run_proxy(
+    args: tuple[LibFuzzer, str, str | None, float | None, int | None, bool]
+):
+    # unpack
+    fuzzer, corpus_dir, fuzzdict, timeout, runs, return_cov = args
+    # clone for seperating working directory
+    fuzzer = LibFuzzer(
+        fuzzer.path,
+        fuzzer.libpath,
+        fuzzer.minimize_corpus,
+        _workdir=tempfile.mkdtemp(),
+    )
+    _profile = os.path.join(fuzzer._workdir, "default.profraw")
+    # run the fuzzer
+    try:
+        retn = fuzzer.run(
+            corpus_dir,
+            fuzzdict,
+            wait_until_done=True,
+            timeout=timeout,
+            runs=runs,
+            _profile=_profile,
+            _logfile=os.path.join(fuzzer._workdir, "log"),
+        )
+    except Exception as e:
+        return corpus_dir, e, None
+
+    if not return_cov:
+        return corpus_dir, retn, None
+    # extract coverage
+    try:
+        cov_lib = fuzzer.coverage(_profile=_profile)
+        cov_fuz = fuzzer.coverage(itself=True, _profile=_profile)
+    except Exception as e:
+        return corpus_dir, e, None
+
+    return corpus_dir, retn, (cov_lib, cov_fuz)
