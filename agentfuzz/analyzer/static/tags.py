@@ -61,20 +61,21 @@ class GNUGlobal:
                 else:
                     path = f"FAILURE#{pathid}"
                 # retrieve lineno
-                lineno, _ = desc.split(maxsplit=1)
-                ## TODO: handling if "-" and "," coexist
-                assert "," not in lineno or "-" not in lineno
-                if "-" in lineno:
-                    start, offset = lineno.split("-")
+                seg, *_ = desc.split(maxsplit=1)
+                _accum, lineno = 0, []
+                for term in seg.split(","):
+                    # single line
+                    if "-" not in term:
+                        _accum += int(term)
+                        lineno.append(_accum - 1)
+                        continue
                     # half-closed interval
-                    lineno = range(int(start) - 1, int(start) + int(offset) - 1)
-                else:
-                    lineno = [
-                        i - 1  # to zero-based index
-                        for i in itertools.accumulate(
-                            map(int, lineno.split(",")), op.add
-                        )
-                    ]
+                    start, offset = term.split("-")
+                    _accum += int(start)
+                    lineno.append(range(_accum - 1, _accum + int(offset) - 1))
+
+                    _accum += int(offset)
+
                 found[path] = lineno
             return found
 
