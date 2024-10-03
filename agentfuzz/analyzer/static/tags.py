@@ -40,7 +40,7 @@ class GNUGlobal:
 
     def _find_symbol(
         self, db: sqlite3.Connection, symbol: str
-    ) -> dict[str, range | list[int]]:
+    ) -> dict[str, list[int | range]]:
         """Find the symbol from the database.
         Args:
             db: a database connection.
@@ -79,7 +79,7 @@ class GNUGlobal:
                 found[path] = lineno
             return found
 
-    def find_definition(self, symbol: str) -> dict[str, range | list[int]]:
+    def find_definition(self, symbol: str) -> dict[str, list[int | range]]:
         """Find the definition about the given symbol.
         Args:
             symbol: the target symbol.
@@ -89,7 +89,7 @@ class GNUGlobal:
         with sqlite3.connect(os.path.join(self.tagdir, "GTAGS")) as db:
             return self._find_symbol(db, symbol)
 
-    def find_references(self, symbol: str) -> dict[str, range | list[int]]:
+    def find_references(self, symbol: str) -> dict[str, list[int | range]]:
         """Find the references about the given symbol.
         Args:
             symbol: the target symbol.

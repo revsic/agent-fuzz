@@ -52,7 +52,7 @@ class AgentHarnessGeneration(Agent):
             "validate": self.validate,
         }
 
-    def _read_file(self, found: dict[str, range | list[int]]):
+    def _read_file(self, found: dict[str, list[int | range]]):
         """Read the code snippet from the file.
         Args:
             found: a map of file path and target lineno.
@@ -69,7 +69,8 @@ class AgentHarnessGeneration(Agent):
                             read := self.read_file(filename, line, num_lines=1)
                         ).get("contents", read),
                     }
-                    for line in lines
+                    for _listed in lines
+                    for line in ([_listed] if isinstance(_listed, int) else _listed)
                 ],
             }
             for filename, lines in found.items()
