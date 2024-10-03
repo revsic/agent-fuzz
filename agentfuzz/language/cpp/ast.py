@@ -418,41 +418,41 @@ class ClangASTParser(ASTParser):
         # temporal paths
         _temp = tempfile.mkdtemp()
         ir = os.path.join(_temp, "ir.ll")
+        log = os.path.join(_temp, "log")
         try:
             _include = [cmdarg for path in include_dir for cmdarg in ("-I", path)]
-            # transform C/C++ source to LLVM IR
-            subprocess.run(
-                [clang, "-S", "-g", "-O0", "-emit-llvm", source, "-o", ir, *_include],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            # extract the control-flow graph from the IR
-            _spec = []
-            if target:
-                _spec = [f"-cfg-func-name={target}"]
-            subprocess.run(
-                ["opt", ir, "-p", "dot-cfg"] + _spec,
-                cwd=_temp,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            files = [
-                os.path.join(_temp, filename)
-                for filename in os.listdir(_temp)
-                if filename.startswith(".") and filename.endswith(".dot")
-            ]
-            # serialize it into a json
-            for path in files:
+            _cmd = [clang, "-S", "-g", "-O0", "-emit-llvm", source, "-o", ir, *_include]
+            with open(log, "w") as f:
+                # transform C/C++ source to LLVM IR
+                subprocess.run(_cmd, check=True, stdout=f, stderr=f, close_fds=False)
+                # extract the control-flow graph from the IR
+                _cmd = ["opt", ir, "-p", "dot-cfg"]
+                if target:
+                    _cmd.append(f"-cfg-func-name={target}")
                 subprocess.run(
-                    ["dot", "-Txdot_json", path, "-o", f"{path}.json"],
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    _cmd, cwd=_temp, check=True, stdout=f, stderr=f, close_fds=False
                 )
+                files = [
+                    os.path.join(_temp, filename)
+                    for filename in os.listdir(_temp)
+                    if filename.startswith(".") and filename.endswith(".dot")
+                ]
+                # serialize it into a json
+                for path in files:
+                    subprocess.run(
+                        ["dot", "-Txdot_json", path, "-o", f"{path}.json"],
+                        check=True,
+                        stdout=f,
+                        stderr=f,
+                        close_fds=False,
+                    )
         except subprocess.CalledProcessError as e:
-            return {"error": e, "_traceback": traceback.format_exc()}
+            with open(log) as f:
+                return {
+                    "error": e,
+                    "_traceback": traceback.format_exc(),
+                    "_log": f.read(),
+                }
         # load json
         cfgs = {}
         for path in files:
