@@ -30,10 +30,9 @@ class GNUGlobal:
                 "gtags",
                 "--skip-unreadable",
                 "--sqlite",
-                "-C",
-                srcdir,
                 os.path.abspath(tagdir),
             ],
+            cwd=srcdir,
             env={**os.environ, "GTAGSLABEL": "new-ctags"},
         )
         results.check_returncode()
