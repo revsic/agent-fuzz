@@ -88,7 +88,7 @@ Agentic Fuzz-driver generation
 - [ ] Density measure supports
 - [x] API scheduler
 - [ ] Fuzzer-run / harness-generation scheduler
-- [ ] Agentic fuzz-driver generation
+- [x] Agentic fuzz-driver generation
 - [x] State load and dump supports
 - [ ] Fuzzer fuser
-- [ ] Multiprocessing Support
+- [x] Multiprocessing Support
