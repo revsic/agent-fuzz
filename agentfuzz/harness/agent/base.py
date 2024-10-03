@@ -1,4 +1,5 @@
 import json
+import traceback
 from dataclasses import dataclass
 
 import litellm
@@ -146,7 +147,7 @@ class Agent:
             # for supporting parallel tool calls
             for req in choice.message.tool_calls:
                 # macro
-                def _append(msg: str):
+                def _append(msg: str, _debug: str | None = None):
                     msg = {
                         "tool_call_id": req.id,
                         "role": "tool",
@@ -154,7 +155,7 @@ class Agent:
                         "content": msg,
                     }
                     messages.append(msg)
-                    self.logger.log(msg)
+                    self.logger.log({**msg, "_debug": _debug})
 
                 # if given tool is undefined
                 if req.function.name not in tools:
@@ -170,11 +171,16 @@ class Agent:
                 except json.JSONDecodeError as e:
                     _append(
                         f"error: exception occured during parsing arguments, `{e}`",
+                        {
+                            "args": req.function.arguments,
+                            "traceback": traceback.format_exc(),
+                        },
                     )
                     continue
                 except Exception as e:
                     _append(
                         f"error: exception occured during calling the function, `{e}`",
+                        {"args": args, "traceback": traceback.format_exc()},
                     )
                     continue
                 # append the message
