@@ -420,18 +420,41 @@ class ClangASTParser(ASTParser):
         ir = os.path.join(_temp, "ir.ll")
         log = os.path.join(_temp, "log")
         try:
-            _include = [cmdarg for path in include_dir for cmdarg in ("-I", path)]
-            _cmd = [clang, "-S", "-g", "-O0", "-emit-llvm", source, "-o", ir, *_include]
             with open(log, "w") as f:
+                _include = [cmdarg for path in include_dir for cmdarg in ("-I", path)]
                 # transform C/C++ source to LLVM IR
+                _cmd = [
+                    clang,
+                    "-S",
+                    "-g",
+                    "-O0",
+                    "-Xclang",
+                    "-disable-O0-optnone",
+                    "-emit-llvm",
+                    source,
+                    "-o",
+                    ir,
+                    *_include,
+                ]
                 subprocess.run(_cmd, check=True, stdout=f, stderr=f, close_fds=False)
                 # extract the control-flow graph from the IR
-                _cmd = ["opt", ir, "-p", "dot-cfg"]
-                if target:
-                    _cmd.append(f"-cfg-func-name={target}")
-                subprocess.run(
-                    _cmd, cwd=_temp, check=True, stdout=f, stderr=f, close_fds=False
-                )
+                try:
+                    # Mac OS LLVM Supports (tested on LLVM 18.1.8, arm64-apple-darwin23.5.0)
+                    _cmd = ["opt", ir, "-p", "dot-cfg"]
+                    if target:
+                        _cmd.append(f"-cfg-func-name={target}")
+                    subprocess.run(
+                        _cmd, cwd=_temp, check=True, stdout=f, stderr=f, close_fds=False
+                    )
+                except subprocess.CalledProcessError:
+                    # Ubuntu LLVM Supports (tested on 15.0.7, x86_64-pc-linux-gnu)
+                    _cmd = ["opt", ir, "--dot-cfg"]
+                    if target:
+                        _cmd.append(f"-cfg-func-name={target}")
+                    subprocess.run(
+                        _cmd, cwd=_temp, check=True, stdout=f, stderr=f, close_fds=False
+                    )
+
                 files = [
                     os.path.join(_temp, filename)
                     for filename in os.listdir(_temp)
