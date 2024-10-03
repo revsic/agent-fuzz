@@ -306,7 +306,7 @@ class HarnessValidator:
             return_cov=True,
         )
         if verbose:
-            iter_ = tqdm(iter_)
+            iter_ = tqdm(iter_, total=len(_corpus_dirs))
         for _corpus_dir, retn, covs in iter_:
             if covs is None:
                 if self.logger is not None:
