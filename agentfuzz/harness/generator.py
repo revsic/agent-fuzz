@@ -2,10 +2,11 @@ import json
 import os
 import random
 import shutil
+import traceback
 from dataclasses import asdict, dataclass, field
 
 from agentfuzz.analyzer import APIGadget, Coverage, Factory
-from agentfuzz.harness.llm import LLMBaseline
+from agentfuzz.harness.llm import Agent, LLMBaseline
 from agentfuzz.harness.mutation import APIMutator
 from agentfuzz.harness.validator import (
     HarnessValidator,
@@ -183,16 +184,22 @@ class HarnessGenerator:
             os.makedirs(workdir, exist_ok=True)
 
             # generate the harness w/LLM
-            result = self.llm.run(
-                targets,
-                apis,
-                types,
-                # metadata for agentic llm
-                workdir=os.path.join(workdir, "agent"),
-                cov=covered.global_,
-                corpus_dir=corpus_dir,
-                fuzzdict=config.fuzzdict,
-            )
+            try:
+                result = self.llm.run(
+                    targets,
+                    apis,
+                    types,
+                    # metadata for agentic llm
+                    workdir=os.path.join(workdir, "agent"),
+                    cov=covered.global_,
+                    corpus_dir=corpus_dir,
+                    fuzzdict=config.fuzzdict,
+                )
+            except Exception as e:
+                result = Agent.Response(
+                    error=f"ERROR: {e}\nTRACEBACK:\n{traceback.format_exc()}"
+                )
+
             trial.cost += result.billing or 0.0
             trial.llm_call = (result.turn or 0) + 1
             if result.error:
