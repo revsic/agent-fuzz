@@ -201,7 +201,7 @@ class HarnessGenerator:
                 )
 
             trial.cost += result.billing or 0.0
-            trial.llm_call = (result.turn or 0) + 1
+            trial.llm_call += (result.turn or 0) + 1
             if result.error:
                 trial.failure_agent += 1
                 self.logger.log(f"  Failed to generate the harness: {result.error}")
