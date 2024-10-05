@@ -90,12 +90,20 @@ class Agent:
         )
         # single conversation if tool does not exist
         if tools is None:
-            response = litellm.completion(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                seed=_seed,
-            )
+            try:
+                response = litellm.completion(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    seed=_seed,
+                )
+            except:
+                return self.Response(
+                    response=None,
+                    messages=messages,
+                    turn=None,
+                    error=traceback.format_exc(),
+                )
             (choice,) = response.choices
             self.logger.log(response.model_dump())
             return self.Response(
@@ -123,14 +131,23 @@ class Agent:
         total_price = None
         for turn in range(max_turns):
             # call LLM
-            response = litellm.completion(
-                model=model,
-                messages=messages,
-                tools=converted,
-                tool_choice="auto",
-                temperature=temperature,
-                seed=_seed,
-            )
+            try:
+                response = litellm.completion(
+                    model=model,
+                    messages=messages,
+                    tools=converted,
+                    tool_choice="auto",
+                    temperature=temperature,
+                    seed=_seed,
+                )
+            except:
+                return self.Response(
+                    response=None,
+                    messages=messages,
+                    turn=turn,
+                    error=traceback.format_exc(),
+                    billing=total_price,
+                )
             (choice,) = response.choices
             self.logger.log(response.model_dump())
             messages.append(choice.message.model_dump())
