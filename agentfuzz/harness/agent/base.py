@@ -1,12 +1,13 @@
 import json
 import traceback
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import litellm
 
 from agentfuzz.harness.agent.logger import AgentLogger
 
 # dollars per token, (input tokens, output tokens)
+## Oct.05, 2024.
 _million = 1_000_000
 PRICING = {
     "gpt-4o-mini": (0.150 / _million, 0.600 / _million),
@@ -58,6 +59,26 @@ class Agent:
             per_input * response.usage.prompt_tokens
             + per_output * response.usage.completion_tokens
         )
+
+    def pre_call(self, fn: str, args: dict):
+        """Hook before call the tool.
+        Args:
+            fn: the name of the tool to call.
+            args: the keyword arguments. you can update it inplacely.
+        """
+        pass
+
+    def post_call(self, fn: str, args: dict, retn: any) -> Response | None:
+        """Hook after call the tool.
+        Args:
+            fn: the name of the tool called.
+            args: the keyword arguments.
+            retn: the return value from the tool call.
+        Returns:
+            `Agent.Response` if you want to stop agent-iteration and return the response instantly.
+            None for keep iteration.
+        """
+        return None
 
     def run(
         self,
@@ -184,7 +205,11 @@ class Agent:
                 args: dict[str, any]
                 try:
                     args = json.loads(req.function.arguments)
+                    # hook before call
+                    self.pre_call(req.function.name, args)
                     retn = tools[req.function.name](**args)
+                    # hook after call
+                    instant_msg = self.post_call(req.function.name, args, retn)
                 except json.JSONDecodeError as e:
                     _append(
                         f"error: exception occured during parsing arguments, `{e}`",
@@ -202,6 +227,23 @@ class Agent:
                     continue
                 # append the message
                 _append(json.dumps(retn, ensure_ascii=False))
+                # if iteration needs to be halted
+                if instant_msg is not None:
+                    # force update
+                    instant_msg.messages = messages
+                    instant_msg.turn = turn
+                    instant_msg.billing = total_price
+                    self.logger.log(
+                        {
+                            "post_call": {
+                                "function": req.function.name,
+                                "args": args,
+                                "instant_msg": asdict(instant_msg),
+                            }
+                        }
+                    )
+                    return instant_msg
+
         # if agent does not respond the answer
         msg = f"iteration exceeds the given maximum number of the turns of conversation, {max_turns}"
         self.logger.log({"error": msg})

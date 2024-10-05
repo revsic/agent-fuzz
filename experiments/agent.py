@@ -218,6 +218,16 @@ class AgentHarnessGeneration(Agent):
         self.state = kwargs
         return super().run(model, messages, tools)
 
+    def post_call(self, fn: str, args: dict, retn: any) -> Agent.Response | None:
+        if fn == "validate" and isinstance(retn, dict) and retn.get("success"):
+            return Agent.Response(
+                response=args["harness"],
+                messages=None,  # it will be updated by agent base
+                turn=None,
+            )
+
+        return None
+
 
 class AgentLLM(LLMBaseline):
     def run(
