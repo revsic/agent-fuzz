@@ -24,17 +24,17 @@ class _Serializable:
     def dump(self) -> dict:
         """Serialize the states into the single dictionary.
         Returns:
-            the states of `Trial`.
+            the states of the object
         """
         return asdict(self)
 
     @classmethod
-    def load(cls, dumps: str | dict) -> "Trial":
+    def load(cls, dumps: str | dict) -> "_Serializable":
         """Load from the dumps.
         Args:
-            dumps: the dumpated states from the method `Trial.dump`.
+            dumps: the dumpated states from the method `dump`.
         Returns:
-            loaded states of `Trials`.
+            loaded states of the object
         """
         if isinstance(dumps, str):
             with open(dumps):
@@ -62,6 +62,15 @@ class Covered(_Serializable):
     global_: Coverage = field(default_factory=Coverage)
     prompted: Coverage = field(default_factory=Coverage)
     executed: Coverage = field(default_factory=Coverage)
+
+    @classmethod
+    def load(cls, dumps: str | dict):
+        """Override for constructing each coverage object from dict."""
+        loaded: Covered = super().load(dumps)
+        loaded.global_ = Coverage(**loaded.global_)
+        loaded.prompted = Coverage(**loaded.prompted)
+        loaded.executed = Coverage(**loaded.executed)
+        return loaded
 
 
 class HarnessGenerator:
