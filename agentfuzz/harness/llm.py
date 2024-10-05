@@ -86,14 +86,14 @@ class LLMBaseline:
             project=config.name,
             headers=[],  # TODO: Retrieve the system headers/imports
             apis=(
-                targets
-                if len(targets) < config.max_apis
-                else self._choose(targets, config.max_apis)
+                apis
+                if len(apis) < config.max_apis
+                else self._choose(apis, config.max_apis)
             ),
             types=[
                 gadget
-                for api in apis
-                for gadget in self.factory.parser.retrieve_type(api, types)
+                for target in targets
+                for gadget in self.factory.parser.retrieve_type(target, types)
             ],
-            combinations=apis,
+            combinations=targets,
         )
