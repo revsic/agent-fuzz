@@ -1,6 +1,6 @@
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import litellm
 
@@ -287,7 +287,8 @@ if __name__ == "__main__":
     _mother = os.path.abspath(f"{__file__}/../..")
     build = os.path.abspath(f"{_mother}/benchmark/cjson/workspace")
     # construct project
-    workdir = f"./workspace/{datetime.now().strftime('%Y.%m.%dT%H:%M')}"
+    _timezone = timezone(timedelta(hours=9))
+    workdir = f"./workspace/{datetime.now(_timezone).strftime('%Y.%m.%dT%H:%M')}"
     project = CppSupports(
         workdir,
         CppSupports._Config(
