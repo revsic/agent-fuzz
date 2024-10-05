@@ -71,8 +71,12 @@ class PromptRenderer:
         """
         if isinstance(apis, str):
             return apis
+        _annotator = lambda gadget: (
+            f" # {source}" if (source := gadget._meta.get("__source__")) else ""
+        )
         return sep.join(
-            api if isinstance(api, str) else api.signature() for api in apis
+            api if isinstance(api, str) else api.signature() + _annotator(api)
+            for api in apis
         )
 
     @staticmethod
