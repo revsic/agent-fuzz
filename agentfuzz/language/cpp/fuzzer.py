@@ -49,8 +49,21 @@ class LibFuzzer(Fuzzer):
             self._workdir, f"{os.path.basename(corpus_dir)}_min"
         )
         os.makedirs(outdir, exist_ok=True)
+        # specify artifact directory
+        _artifact_dir = os.path.join(self._workdir, "artifact")
+        os.makedirs(_artifact_dir, exist_ok=True)
         with open(f"{self.path}.minimize.log", "wb") as f:
-            run = subprocess.run([self.path, "-merge=1", outdir, corpus_dir], stderr=f)
+            run = subprocess.run(
+                [
+                    self.path,
+                    "-merge=1",
+                    outdir,
+                    corpus_dir,
+                    f"-artifact_prefix={_artifact_dir}/",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=f,
+            )
         try:
             run.check_returncode()
         except subprocess.CalledProcessError:
@@ -121,6 +134,7 @@ class LibFuzzer(Fuzzer):
         # run the fuzzer
         self._proc = subprocess.Popen(
             cmd,
+            stdout=subprocess.DEVNULL,
             stderr=open(_logfile or f"{self.path}.log", "wb"),
             env={**os.environ, "LLVM_PROFILE_FILE": _profile},
         )
