@@ -197,7 +197,10 @@ class HarnessGenerator:
                 )
             except Exception as e:
                 result = Agent.Response(
-                    error=f"ERROR: {e}\nTRACEBACK:\n{traceback.format_exc()}"
+                    response=None,
+                    messages=[],
+                    turn=None,
+                    error=f"ERROR: {e}\nTRACEBACK:\n{traceback.format_exc()}",
                 )
 
             trial.cost += result.billing or 0.0
