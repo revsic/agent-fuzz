@@ -53,27 +53,33 @@ class Factory:
         Returns:
             list of the APIs from the project, which will be used to generate harness.
         """
-        apis = []
+        apis = {}
         for source in self.listup_files():
             try:
-                apis.extend(self.parser.parse_api_gadget(source))
+                for gadget in self.parser.parse_api_gadget(source):
+                    if gadget.signature() in apis:
+                        continue
+                    apis[gadget.signature()] = gadget
             except Exception as e:
                 raise RuntimeError(
                     f"failed to parse the APIs from file `{source}`"
                 ) from e
-        return apis
+        return list(apis.values())
 
     def listup_types(self) -> list[TypeGadget]:
         """(None-LLM API) Listup the user-defined types.
         Returns:
             list of types from the projects.
         """
-        types = []
+        types = {}
         for source in self.listup_files():
             try:
-                types.extend(self.parser.parse_type_gadget(source))
+                for gadget in self.parser.parse_type_gadget(source):
+                    if gadget.signature() in types:
+                        continue
+                    types[gadget.signature()] = gadget
             except Exception as e:
                 raise RuntimeError(
                     f"failed to parse the types from file `{source}`"
                 ) from e
-        return types
+        return list(types.values())

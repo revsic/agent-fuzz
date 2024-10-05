@@ -69,7 +69,7 @@ class ClangASTParser(ASTParser):
         top_node = self._parse_to_ast(source)
         assert "error" not in top_node, top_node
         # traversal
-        gadgets, stack = [], [*top_node["inner"]]
+        gadgets, stack = {}, [*top_node["inner"]]
         while stack:
             node = stack.pop()
             # TypeAliasDecl: using A = B;
@@ -94,7 +94,8 @@ class ClangASTParser(ASTParser):
                 qualified=node.get("type", {}).get("qualType", None),
                 _meta={"node": node},
             )
-            gadgets.append(gadget)
+            if gadget.signature() not in gadgets:
+                gadgets[gadget.signature()] = gadget
             # C++ allows nested type declaration
             if "inner" in node:
                 stack.extend(
@@ -109,7 +110,7 @@ class ClangASTParser(ASTParser):
                         )
                     ]
                 )
-        return gadgets
+        return list(gadgets.values())
 
     def parse_api_gadget(self, source: str) -> CStyleAPIGadget:
         """Parse the API infos from the header file.
@@ -123,7 +124,7 @@ class ClangASTParser(ASTParser):
         top_node = self._parse_to_ast(source)
         assert "error" not in top_node, top_node
         # traversal
-        gadgets, stack = [], [*top_node["inner"]]
+        gadgets, stack = {}, [*top_node["inner"]]
         while stack:
             node = stack.pop()
             if node.get("kind") not in ["FunctionDecl"]:
@@ -159,8 +160,9 @@ class ClangASTParser(ASTParser):
                 arguments=arguments,
                 _meta={"_post_qualifier": _post_qualifier, "node": node},
             )
-            gadgets.append(gadget)
-        return gadgets
+            if gadget.signature() not in gadgets:
+                gadgets[gadget.signature()] = gadget
+        return list(gadgets.values())
 
     def extract_critical_path(
         self,
