@@ -82,6 +82,14 @@ class LLMBaseline:
             OpenAI-format instruction prompt.
         """
         config = self.factory.config
+        # retrieve only relative types
+        retrieved = {}
+        for target in targets:
+            for gadget in self.factory.parser.retrieve_type(target, types):
+                if gadget.signature() in retrieved:
+                    continue
+                retrieved[gadget.signature()] = gadget
+        # render
         return self.prompt.render(
             project=config.name,
             headers=[],  # TODO: Retrieve the system headers/imports
@@ -90,10 +98,6 @@ class LLMBaseline:
                 if len(apis) < config.max_apis
                 else self._choose(apis, config.max_apis)
             ),
-            types=[
-                gadget
-                for target in targets
-                for gadget in self.factory.parser.retrieve_type(target, types)
-            ],
+            types=list(retrieved.values()),
             combinations=targets,
         )
