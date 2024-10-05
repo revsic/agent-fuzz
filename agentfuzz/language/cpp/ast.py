@@ -105,7 +105,7 @@ class ClangASTParser(ASTParser):
                         if not (
                             node["kind"] == "CXXRecordDecl"
                             and inner["kind"] == "CXXRecordDecl"
-                            and inner["name"] == node["name"]
+                            and inner.get("name") == node["name"]
                         )
                     ]
                 )
