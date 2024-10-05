@@ -59,6 +59,8 @@ class Factory:
                 for gadget in self.parser.parse_api_gadget(source):
                     if gadget.signature() in apis:
                         continue
+                    # WARNING: inplace operation
+                    gadget._meta["__source__"] = source
                     apis[gadget.signature()] = gadget
             except Exception as e:
                 raise RuntimeError(
@@ -77,6 +79,8 @@ class Factory:
                 for gadget in self.parser.parse_type_gadget(source):
                     if gadget.signature() in types:
                         continue
+                    # WARNING: inplace operation
+                    gadget._meta["__source__"] = source
                     types[gadget.signature()] = gadget
             except Exception as e:
                 raise RuntimeError(
