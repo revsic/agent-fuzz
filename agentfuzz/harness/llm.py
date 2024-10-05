@@ -1,3 +1,5 @@
+import random
+
 from agentfuzz.analyzer import APIGadget, TypeGadget, Factory
 from agentfuzz.harness.agent import Agent, AgentLogger
 from agentfuzz.harness.prompt import BaselinePrompt, PromptRenderer, PROMPT_SUPPORTS
@@ -101,3 +103,17 @@ class LLMBaseline:
             types=list(retrieved.values()),
             combinations=targets,
         )
+
+    def _choose(self, items: list, n: int) -> list:
+        """Simple implementation of `np.random.choice`.
+        Args:
+            items: a list.
+            n: the number of the items to choose.
+        Returns:
+            n-sized list of randomly shuffled elements(non-duplicated).
+        """
+        # shallow copy
+        items = [*items]
+        # shuffle
+        random.shuffle(items)
+        return items[:n]
