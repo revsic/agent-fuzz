@@ -41,7 +41,10 @@ class CppFactory(Factory):
         """
         include_dir = self.config.include_dir or [self.config.srcdir]
         return [
-            os.path.join(root, filename)
+            (
+                dir_,
+                os.path.relpath(os.path.join(root, filename), dir_)
+            )
             for dir_ in include_dir
             for root, _, files in os.walk(dir_)
             for filename in files

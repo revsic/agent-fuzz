@@ -34,7 +34,7 @@ class Factory:
             self.config.srcdir, tagdir=os.path.join(self.workdir, "tags")
         )
 
-    def listup_files(self) -> list[str]:
+    def listup_files(self) -> list[tuple[str, str]]:
         """(Non-LLM API) Listup the files which containing the API Gadgets.
         Maybe header files from the C/C++ project, or all `.py` files from the python project.
 
@@ -42,7 +42,10 @@ class Factory:
             list of paths to the source files.
         """
         return [
-            os.path.join(root, filename)
+            (
+                self.config.srcdir,
+                os.path.relpath(os.path.join(root, filename), self.config.srcdir),
+            )
             for root, _, files in os.walk(self.config.srcdir)
             for filename in files
             if filename.endswith(tuple(self.config.postfix))
@@ -54,17 +57,18 @@ class Factory:
             list of the APIs from the project, which will be used to generate harness.
         """
         apis = {}
-        for source in self.listup_files():
+        for mother, relpath in self.listup_files():
+            full = os.path.join(mother, relpath)
             try:
-                for gadget in self.parser.parse_api_gadget(source):
+                for gadget in self.parser.parse_api_gadget(full):
                     if gadget.signature() in apis:
                         continue
                     # WARNING: inplace operation
-                    gadget._meta["__source__"] = source
+                    gadget._meta["__source__"] = relpath
                     apis[gadget.signature()] = gadget
             except Exception as e:
                 raise RuntimeError(
-                    f"failed to parse the APIs from file `{source}`"
+                    f"failed to parse the APIs from file `{full}`"
                 ) from e
         return list(apis.values())
 
@@ -74,16 +78,17 @@ class Factory:
             list of types from the projects.
         """
         types = {}
-        for source in self.listup_files():
+        for mother, relpath in self.listup_files():
+            full = os.path.join(mother, relpath)
             try:
-                for gadget in self.parser.parse_type_gadget(source):
+                for gadget in self.parser.parse_type_gadget(full):
                     if gadget.signature() in types:
                         continue
                     # WARNING: inplace operation
-                    gadget._meta["__source__"] = source
+                    gadget._meta["__source__"] = relpath
                     types[gadget.signature()] = gadget
             except Exception as e:
                 raise RuntimeError(
-                    f"failed to parse the types from file `{source}`"
+                    f"failed to parse the types from file `{full}`"
                 ) from e
         return list(types.values())
