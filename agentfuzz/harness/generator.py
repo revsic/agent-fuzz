@@ -208,7 +208,7 @@ class HarnessGenerator:
             if result.error:
                 trial.failure_agent += 1
                 self.logger.log(f"  Failed to generate the harness: {result.error}")
-                break
+                continue
 
             # exception handler
             def _handle_error(errfile: str, error: str, errdir: str, log: str):
