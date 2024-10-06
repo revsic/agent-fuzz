@@ -243,7 +243,7 @@ class APIMutator:
 
     def _remove(
         self, gadgets: list[tuple[APIGadget, float]], k: int
-    ) -> list[APIGadget]:
+    ) -> list[tuple[APIGadget, float]]:
         """Remove the k-gadgets of lowest energies.
         Args:
             gadgets: a list of target gadgets and their energies.
@@ -255,7 +255,11 @@ class APIMutator:
             gadget.signature()
             for gadget in self._highest_energies(gadgets, len(gadgets))[-k:]
         )
-        return [gadget for gadget, _ in gadgets if gadget.signature() not in lowest]
+        return [
+            (gadget, engy)
+            for gadget, engy in gadgets
+            if gadget.signature() not in lowest
+        ]
 
     def _crossover(
         self,
