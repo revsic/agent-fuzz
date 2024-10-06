@@ -264,7 +264,7 @@ class HarnessGenerator:
 
                 case CoverageNotGrow() as err:
                     trial.failure_coverage += 1
-                    msg = f"FP: Critical path did not grow, current: {err.cov_local * 100:.2f}%, global: {err.cov_global * 100:.2f}%"
+                    msg = f"FP: Coverage did not grow, current: {err.cov_local * 100:.2f}%, global: {err.cov_global * 100:.2f}%"
                     _handle_error(
                         "failure_cov_growth.txt", msg, self._dir_failure_fuzzer, msg
                     )

@@ -185,7 +185,7 @@ class HarnessValidator:
 
         # success to pass all tests
         if self.logger is not None:
-            self.logger.log(f"Succesfully validated the requested harness.")
+            self.logger.log(f"Successfully validated the requested harness.")
         return Success(
             path=path,
             fuzzer=Fuzzer,
