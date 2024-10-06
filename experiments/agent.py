@@ -283,25 +283,24 @@ If you understand, start to understand the project and write a harness.
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--target", default="cjson")
+    args = parser.parse_args()
     # target project
-    _mother = os.path.abspath(f"{__file__}/../..")
-    build = os.path.abspath(f"{_mother}/benchmark/cjson/workspace")
+    benchmark = os.path.abspath(f"{__file__}/../../benchmark/{args.target}")
     # construct project
-    _timezone = timezone(timedelta(hours=9))
-    workdir = f"./workspace/{datetime.now(_timezone).strftime('%Y.%m.%dT%H:%M')}"
-    project = CppSupports(
-        workdir,
-        CppSupports._Config(
-            name="cjson",
-            srcdir=f"{build}/src/cJSON",
-            corpus_dir=f"{build}/corpus",
-            fuzzdict=f"{build}/dict/json.dict",
-            libpath=f"{build}/lib/libcjson.a",
-            include_dir=[f"{build}/include"],
-            timeout=60,
-            timeout_unit=10,
-        ),
-    )
+    stamp = datetime.now(timezone(timedelta(hours=9))).strftime("%Y.%m.%dT%H:%M")
+    workdir = f"./workspace/{args.target}/{stamp}"
+    # load config
+    config = CppSupports._Config.load_from_yaml(os.path.join(benchmark, "config.yaml"))
+    config.srcdir = os.path.join(benchmark, config.srcdir)
+    config.fuzzdict = os.path.join(benchmark, config.fuzzdict)
+    config.corpus_dir = os.path.join(benchmark, config.corpus_dir)
+    config.libpath = os.path.join(benchmark, config.libpath)
+    config.include_dir = [os.path.join(benchmark, dir_) for dir_ in config.include_dir]
+    project = CppSupports(workdir, config)
 
     generator = HarnessGenerator(
         project.factory,
@@ -317,4 +316,4 @@ if __name__ == "__main__":
         ),
         logger=os.path.join(workdir, "harness-gen.log"),
     )
-    generator.run(load_from_state=False)
+    generator.run(load_from_state=True)
