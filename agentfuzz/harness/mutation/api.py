@@ -270,15 +270,16 @@ class APIMutator:
         Returns:
             crossed-gadgets.
         """
+        gadgets, other = [g for g, _ in gadgets], [g for g, _ in other]
         # on a longer baseline
         if len(gadgets) < len(other):
             gadgets, other = other, gadgets
         # if both are shorter than k
-        if len(gadgets) < k:
+        if len(gadgets) <= k:
             return gadgets + other
         # if shorter one is shorter than k
-        if len(other) < k:
-            i = random.randint(0, len(gadgets) - len(other) - 1)
+        if len(other) <= k:
+            i = random.randint(0, len(gadgets) - len(other))
             return gadgets[:i] + other + gadgets[i + len(other) :]
         # if both are longer than k
         i = random.randint(0, len(gadgets) - k - 1)
