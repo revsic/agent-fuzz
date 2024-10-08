@@ -12,4 +12,4 @@ libpath: ./workspace/lib/libcjson.a
 include_dir:
   - ./workspace/include
 timeout: 60
-timeout: 10
+timeout_unit: 10
