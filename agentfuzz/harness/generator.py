@@ -292,7 +292,11 @@ class HarnessGenerator:
                         for item, _ in path
                         if isinstance(item, APIGadget)
                     }
-                    self.logger.log(f"  Executed API: {', '.join(_executed)}")
+                    if result.validated is not None:
+                        self.logger.log(f"Successfully validated by the Agent.")
+                    self.logger.log(
+                        f"  Executed API: {json.dumps(list(_executed), ensure_ascii=False)}"
+                    )
                     covered.executed.merge(Coverage(_executed))
                     # append to mutator
                     for path in succ.validated_paths:
