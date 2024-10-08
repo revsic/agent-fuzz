@@ -194,8 +194,8 @@ class AgentHarnessGeneration(Agent):
                     "error": "api-hit",
                     "description": "- " + "\n- ".join(err._render()),
                 }
-            case Success() as err:
-                return {"success": True}
+            case Success() as succ:
+                return {"success": True, "validated": succ}
 
     def run(
         self, model: str, messages: list[dict[str, str]], **kwargs
@@ -221,9 +221,10 @@ class AgentHarnessGeneration(Agent):
     def post_call(self, fn: str, args: dict, retn: any) -> Agent.Response | None:
         if fn == "validate" and isinstance(retn, dict) and retn.get("success"):
             return Agent.Response(
-                response=args["harness"],
+                response=None,
                 messages=None,  # it will be updated by agent base
                 turn=None,
+                validated=retn.pop("validated"),
             )
 
         return None

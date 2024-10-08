@@ -227,7 +227,7 @@ class HarnessGenerator:
                 self.logger.log(log)
 
             # validate
-            match validator.validate(
+            match result.validated or validator.validate(
                 result.response,
                 covered.global_,
                 workdir,

@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 import litellm
 
 from agentfuzz.harness.agent.logger import AgentLogger
+from agentfuzz.harness.validator import Success
 
 # dollars per token, (input tokens, output tokens)
 ## Oct.05, 2024.
@@ -31,6 +32,7 @@ class Agent:
         turn: int | None
         error: str | None = None
         billing: float | None = None
+        validated: Success | None = None
 
     def __init__(
         self, logger: AgentLogger | None = None, _stack: list[str] | None = None
