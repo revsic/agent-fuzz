@@ -220,11 +220,14 @@ class AgentHarnessGeneration(Agent):
 
     def post_call(self, fn: str, args: dict, retn: any) -> Agent.Response | None:
         if fn == "validate" and isinstance(retn, dict) and retn.get("success"):
+            validated: Success = retn.pop("validated")
+            # TODO: support a json serialization for `Success`
+            validated.fuzzer = None
             return Agent.Response(
                 response=None,
                 messages=None,  # it will be updated by agent base
                 turn=None,
-                validated=retn.pop("validated"),
+                validated=validated,
             )
 
         return None
