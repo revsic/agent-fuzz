@@ -246,12 +246,12 @@ class ClangASTParser(ASTParser):
         if not inner:
             return None
         (body,) = inner
-        if "|" in body:
-            _, body, *_ = body.split("|", maxsplit=2)
         _debugs, _sources = meta.get("debugs", {}), meta.get("source", "").split("\n")
         # start to parse
         result = []
         for ir in body.strip("\\l").split("\\l"):
+            if ir.startswith("|"):
+                ir = ir[1:]
             # find to find the originals
             try:
                 ir = next(i for i in _sources if i.startswith(ir))
