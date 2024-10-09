@@ -270,12 +270,13 @@ class LibFuzzer(Fuzzer):
         # merge the raw profile
         try:
             run = subprocess.run(
-                ["llvm-profdata", "merge", "-sparse", _profile, "-o", _merged]
+                ["llvm-profdata", "merge", "-sparse", _profile, "-o", _merged],
+                capture_output=True,
             )
             run.check_returncode()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
-                f"failed to merge the raw profile data `{_profile}` to `{_merged}`"
+                f"failed to merge the raw profile data `{_profile}` to `{_merged}`: {run.stderr}"
             ) from e
         # return the coverage
         cov: dict
@@ -294,11 +295,11 @@ class LibFuzzer(Fuzzer):
             cov = parse_lcov(run.stdout.decode("utf-8"))
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
-                f"failed to extract the coverage from the profile data `{_merged}`"
+                f"failed to extract the coverage from the profile data `{_merged}`: {run.stderr}"
             ) from e
         except Exception as e:
             raise RuntimeError(
-                f"failed to parse the lcov-format coverate data from profile `{_merged}`"
+                f"failed to parse the lcov-format coverate data from profile `{_merged}`: {e}"
             ) from e
         # pack to coverage
         packed = Coverage()
