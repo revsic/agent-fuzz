@@ -38,17 +38,14 @@ git checkout v2.9.4
 BUILDIR=$WORKDIR/build
 mkdir -p $BUILDIR && pushd $BUILDIR
 # build
-FLAGS="-g -fprofile-instr-generate -fcoverage-mapping -fsanitize=fuzzer-no-link -fno-sanitize=undefined,address"
+FLAGS="-g -fprofile-instr-generate -fcoverage-mapping"
 export CC=clang
-export CXX=clang++
 export CFLAGS="$CFLAGS $FLAGS"
-export CXXFLAGS="$CXXFLAGS $FLAGS"
 # prepare install directory
 mkdir install
 # build
 $SRCDIR/libxml2/autogen.sh \
     --srcdir=$SRCDIR/libxml2 \
-    --disable-shared \
     --prefix=`realpath ./install` \
     --without-debug \
     --without-http \
@@ -60,7 +57,7 @@ make install
 
 # copy library
 mkdir -p $WORKDIR/lib
-cp install/lib/libxml2.a $WORKDIR/lib
+cp install/lib/libxml2.so $WORKDIR/lib
 
 # copy header files
 mkdir -p $WORKDIR/include

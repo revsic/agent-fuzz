@@ -8,10 +8,11 @@ postfix:
 fuzzdict: ./workspace/dict/xml.dict
 corpus_dir: ./workspace/corpus
 # CppConfig
-libpath: ./workspace/lib/libxml2.a
+libpath: ./workspace/lib/libxml2.so
 links:
   - -lz
   - -llzma
+  - -lm
 include_dir:
   - ./workspace/include
 timeout: 60

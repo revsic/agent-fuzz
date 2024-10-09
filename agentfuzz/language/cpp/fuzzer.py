@@ -63,6 +63,7 @@ class LibFuzzer(Fuzzer):
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=f,
+                env={**os.environ, "LD_PRELOAD": self.libpath},
             )
         try:
             run.check_returncode()
@@ -136,7 +137,11 @@ class LibFuzzer(Fuzzer):
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=open(_logfile or f"{self.path}.log", "wb"),
-            env={**os.environ, "LLVM_PROFILE_FILE": _profile},
+            env={
+                **os.environ,
+                "LLVM_PROFILE_FILE": _profile,
+                "LD_PRELOAD": self.libpath,
+            },
         )
         if timeout is not None:
             self._timeout = time() + timeout
