@@ -62,7 +62,7 @@ popd
 # copy corpus
 mkdir -p $WORKDIR/corpus
 git clone https://github.com/the-tcpdump-group/tcpdump
-cp ./tcpdump/tests/* $WORKDIR/corpus
+cp ./tcpdump/tests/*.pcap $WORKDIR/corpus
 
 # $WORKDIR
 popd
