@@ -300,9 +300,12 @@ if __name__ == "__main__":
     # load config
     config = CppSupports._Config.load_from_yaml(os.path.join(benchmark, "config.yaml"))
     config.srcdir = os.path.join(benchmark, config.srcdir)
-    config.fuzzdict = os.path.join(benchmark, config.fuzzdict)
-    config.corpus_dir = os.path.join(benchmark, config.corpus_dir)
-    config.libpath = os.path.join(benchmark, config.libpath)
+    if config.fuzzdict is not None:
+        config.fuzzdict = os.path.join(benchmark, config.fuzzdict)
+    if config.corpus_dir is not None:
+        config.corpus_dir = os.path.join(benchmark, config.corpus_dir)
+    if config.libpath is not None:
+        config.libpath = os.path.join(benchmark, config.libpath)
     config.include_dir = [os.path.join(benchmark, dir_) for dir_ in config.include_dir]
     project = CppSupports(workdir, config)
 
