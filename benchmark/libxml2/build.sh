@@ -8,11 +8,18 @@ fi
 #     | libxml2 (repo)
 #   | build
 #   | lib (required)
-#     |
+#     | libxml2.a
 #   | include (optional)
-#     | 
+#     | libxml
+#       | c14n.h
+#       | catalog.h
+#       | ...
 #   | corpus (optional)
-#     | 
+#     | 4rects.xml
+#     | 21.xml
+#     | ...
+#   | dict (optional)
+#     | xml.dict
 
 mkdir -p $WORKDIR
 # to absolute path

@@ -17,7 +17,9 @@ fi
 #     | pcap-namedb.h
 #     | pcap.h
 #   | corpus (optional)
-#     | 
+#     | 02-sunrise-sunset-esp.pcap
+#     | 08-sunrise-sunset-aes.pcap
+#     | ...
 
 mkdir -p $WORKDIR
 # to absolute path
