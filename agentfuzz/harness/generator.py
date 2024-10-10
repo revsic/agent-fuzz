@@ -327,7 +327,11 @@ class HarnessGenerator:
         Args:
             trial, covered, api_mutator: the states of harness generator.
         """
-        with open(path or os.path.join(self._dir_state, "latest.json"), "w") as f:
+        _latest = path or os.path.join(self._dir_state, "latest.json")
+        # backup first
+        if os.path.exists(_latest):
+            shutil.copy(_latest, _latest + ".backup")
+        with open(_latest, "w") as f:
             json.dump(
                 {
                     "trial": trial.dump(),
