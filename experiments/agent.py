@@ -291,11 +291,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", default="cjson")
+    parser.add_argument("--stamp", default=None)
     args = parser.parse_args()
     # target project
     benchmark = os.path.abspath(f"{__file__}/../../benchmark/{args.target}")
     # construct project
-    stamp = datetime.now(timezone(timedelta(hours=9))).strftime("%Y.%m.%dT%H:%M")
+    stamp = args.stamp or datetime.now(timezone(timedelta(hours=9))).strftime(
+        "%Y.%m.%dT%H:%M"
+    )
     workdir = f"./workspace/{args.target}/{stamp}"
     # load config
     config = CppSupports._Config.load_from_yaml(os.path.join(benchmark, "config.yaml"))
