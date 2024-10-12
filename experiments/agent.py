@@ -225,23 +225,21 @@ class AgentHarnessGeneration(Agent):
                 return {
                     "error": "compile",
                     "description": err.compile_error,
-                    "suggestion": (
-                        "Analyze the compile error and correct the harness. "
-                        "You may call `find_definition`, `find_references`, and `read_file` to gather more information about the APIs. "
-                        "Alternatively, you can fix the error directly without retrieval."
-                    ),
+                    "suggestion": """
+Analyze the compile error and correct the harness.
+You may call `find_definition`, `find_references`, and `read_file` to gather more information about the APIs.
+Alternatively, you can fix the error directly without retrieval.
+""",
                 }
             case APINotCovered() as err:
                 return {
                     "error": "api-not-used",
-                    "description": (
-                        f"Some of the APIs are not used in the harness; you should include all APIs.\n"
-                        f"- Here are the requested APIs: {json.dumps(sorted(err.requested))}\n"
-                        f"- Here are the APIs that the harness does not use: {json.dumps(sorted(err.requested - err.covered))}"
-                    ),
-                    "suggestion": (
-                        "Consider use cases that involve the APIs not used in the harness, and modify the harness to include those APIs."
-                    ),
+                    "description": f"""
+Some of the APIs are not used in the harness; you should include all APIs.
+- Here are the requested APIs: {json.dumps(sorted(err.requested))}
+- Here are the APIs that the harness does not use: {json.dumps(sorted(err.requested - err.covered))}
+""",
+                    "suggestion": "Consider use cases that involve the APIs not used in the harness, and modify the harness to include those APIs.",
                 }
             case FuzzerError() as err:
                 return {
