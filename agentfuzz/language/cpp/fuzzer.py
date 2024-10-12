@@ -336,34 +336,35 @@ def _batch_run_proxy(
     # unpack
     fuzzer, corpus_dir, fuzzdict, timeout, runs, return_cov = args
     # clone for seperating working directory
-    fuzzer = LibFuzzer(
-        fuzzer.path,
-        fuzzer.libpath,
-        fuzzer.minimize_corpus,
-        _workdir=tempfile.mkdtemp(),
-    )
-    _profile = os.path.join(fuzzer._workdir, "default.profraw")
-    # run the fuzzer
-    try:
-        retn = fuzzer.run(
-            corpus_dir,
-            fuzzdict,
-            wait_until_done=True,
-            timeout=timeout,
-            runs=runs,
-            _profile=_profile,
-            _logfile=os.path.join(fuzzer._workdir, "log"),
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as _workdir:
+        fuzzer = LibFuzzer(
+            fuzzer.path,
+            fuzzer.libpath,
+            fuzzer.minimize_corpus,
+            _workdir=_workdir,
         )
-    except Exception as e:
-        return corpus_dir, e, None
+        _profile = os.path.join(fuzzer._workdir, "default.profraw")
+        # run the fuzzer
+        try:
+            retn = fuzzer.run(
+                corpus_dir,
+                fuzzdict,
+                wait_until_done=True,
+                timeout=timeout,
+                runs=runs,
+                _profile=_profile,
+                _logfile=os.path.join(fuzzer._workdir, "log"),
+            )
+        except Exception as e:
+            return corpus_dir, e, None
 
-    if not return_cov:
-        return corpus_dir, retn, None
-    # extract coverage
-    try:
-        cov_lib = fuzzer.coverage(_profile=_profile)
-        cov_fuz = fuzzer.coverage(itself=True, _profile=_profile)
-    except Exception as e:
-        return corpus_dir, e, None
+        if not return_cov:
+            return corpus_dir, retn, None
+        # extract coverage
+        try:
+            cov_lib = fuzzer.coverage(_profile=_profile)
+            cov_fuz = fuzzer.coverage(itself=True, _profile=_profile)
+        except Exception as e:
+            return corpus_dir, e, None
 
     return corpus_dir, retn, (cov_lib, cov_fuz)

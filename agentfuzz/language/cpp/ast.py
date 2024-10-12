@@ -419,82 +419,96 @@ class ClangASTParser(ASTParser):
             dumped control flow graph.
         """
         # temporal paths
-        _temp = tempfile.mkdtemp()
-        ir = os.path.join(_temp, "ir.ll")
-        log = os.path.join(_temp, "log")
-        try:
-            with open(log, "w") as f:
-                _include = [cmdarg for path in include_dir for cmdarg in ("-I", path)]
-                # transform C/C++ source to LLVM IR
-                _cmd = [
-                    clang,
-                    "-S",
-                    "-g",
-                    "-O0",
-                    "-Xclang",
-                    "-disable-O0-optnone",
-                    "-emit-llvm",
-                    source,
-                    "-o",
-                    ir,
-                    *_include,
-                ]
-                subprocess.run(_cmd, check=True, stdout=f, stderr=f, close_fds=False)
-                # extract the control-flow graph from the IR
-                try:
-                    # Mac OS LLVM Supports (tested on LLVM 18.1.8, arm64-apple-darwin23.5.0)
-                    _cmd = ["opt", ir, "-p", "dot-cfg"]
-                    if target:
-                        _cmd.append(f"-cfg-func-name={target}")
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as _temp:
+            ir = os.path.join(_temp, "ir.ll")
+            log = os.path.join(_temp, "log")
+            try:
+                with open(log, "w") as f:
+                    _include = [
+                        cmdarg for path in include_dir for cmdarg in ("-I", path)
+                    ]
+                    # transform C/C++ source to LLVM IR
+                    _cmd = [
+                        clang,
+                        "-S",
+                        "-g",
+                        "-O0",
+                        "-Xclang",
+                        "-disable-O0-optnone",
+                        "-emit-llvm",
+                        source,
+                        "-o",
+                        ir,
+                        *_include,
+                    ]
                     subprocess.run(
-                        _cmd, cwd=_temp, check=True, stdout=f, stderr=f, close_fds=False
+                        _cmd, check=True, stdout=f, stderr=f, close_fds=False
                     )
-                except subprocess.CalledProcessError:
-                    # Ubuntu LLVM Supports (tested on 15.0.7, x86_64-pc-linux-gnu)
-                    _cmd = ["opt", ir, "--dot-cfg"]
-                    if target:
-                        _cmd.append(f"-cfg-func-name={target}")
-                    subprocess.run(
-                        _cmd, cwd=_temp, check=True, stdout=f, stderr=f, close_fds=False
-                    )
+                    # extract the control-flow graph from the IR
+                    try:
+                        # Mac OS LLVM Supports (tested on LLVM 18.1.8, arm64-apple-darwin23.5.0)
+                        _cmd = ["opt", ir, "-p", "dot-cfg"]
+                        if target:
+                            _cmd.append(f"-cfg-func-name={target}")
+                        subprocess.run(
+                            _cmd,
+                            cwd=_temp,
+                            check=True,
+                            stdout=f,
+                            stderr=f,
+                            close_fds=False,
+                        )
+                    except subprocess.CalledProcessError:
+                        # Ubuntu LLVM Supports (tested on 15.0.7, x86_64-pc-linux-gnu)
+                        _cmd = ["opt", ir, "--dot-cfg"]
+                        if target:
+                            _cmd.append(f"-cfg-func-name={target}")
+                        subprocess.run(
+                            _cmd,
+                            cwd=_temp,
+                            check=True,
+                            stdout=f,
+                            stderr=f,
+                            close_fds=False,
+                        )
 
-                files = [
-                    os.path.join(_temp, filename)
-                    for filename in os.listdir(_temp)
-                    if filename.startswith(".") and filename.endswith(".dot")
-                ]
-                # serialize it into a json
-                for path in files:
-                    subprocess.run(
-                        ["dot", "-Txdot_json", path, "-o", f"{path}.json"],
-                        check=True,
-                        stdout=f,
-                        stderr=f,
-                        close_fds=False,
-                    )
-        except subprocess.CalledProcessError as e:
-            with open(log) as f:
-                return {
-                    "error": e,
-                    "_traceback": traceback.format_exc(),
-                    "_log": f.read(),
+                    files = [
+                        os.path.join(_temp, filename)
+                        for filename in os.listdir(_temp)
+                        if filename.startswith(".") and filename.endswith(".dot")
+                    ]
+                    # serialize it into a json
+                    for path in files:
+                        subprocess.run(
+                            ["dot", "-Txdot_json", path, "-o", f"{path}.json"],
+                            check=True,
+                            stdout=f,
+                            stderr=f,
+                            close_fds=False,
+                        )
+            except subprocess.CalledProcessError as e:
+                with open(log) as f:
+                    return {
+                        "error": e,
+                        "_traceback": traceback.format_exc(),
+                        "_log": f.read(),
+                    }
+            # load json
+            cfgs = {}
+            for path in files:
+                with open(f"{path}.json") as f:
+                    loaded = json.load(f)
+                cfgs[os.path.basename(path)[1 : -len(".dot.json")]] = loaded
+            # metadata
+            with open(ir) as f:
+                ll = f.read()
+                cfgs["__meta__"] = {
+                    "source": ll,
+                    "debugs": {
+                        int(found[0]): line
+                        for line in ll.split("\n")
+                        if (found := re.findall(r"^!(\d+)", line))
+                    },
                 }
-        # load json
-        cfgs = {}
-        for path in files:
-            with open(f"{path}.json") as f:
-                loaded = json.load(f)
-            cfgs[os.path.basename(path)[1 : -len(".dot.json")]] = loaded
-        # metadata
-        with open(ir) as f:
-            ll = f.read()
-            cfgs["__meta__"] = {
-                "source": ll,
-                "debugs": {
-                    int(found[0]): line
-                    for line in ll.split("\n")
-                    if (found := re.findall(r"^!(\d+)", line))
-                },
-            }
 
         return cfgs

@@ -1,5 +1,4 @@
 import os
-import tempfile
 from datetime import datetime, timedelta, timezone
 
 import litellm
@@ -166,10 +165,11 @@ class AgentHarnessGeneration(Agent):
             }
             ```
         """
+        assert "workdir" in self.state, "specify the working directory"
         match self.validator.validate(
             harness,
             self.state.get("cov") or Coverage(),
-            self.state.get("workdir") or tempfile.mkdtemp(),
+            self.state.get("workdir"),
             self.state.get("corpus_dir"),
             self.state.get("fuzzdict"),
             batch_size=self.batch_size,
