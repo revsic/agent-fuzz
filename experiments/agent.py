@@ -165,11 +165,13 @@ class AgentHarnessGeneration(Agent):
             }
             ```
         """
+        assert "targets" in self.state, "pass the list of the requested apis"
         assert "workdir" in self.state, "specify the working directory"
         match self.validator.validate(
             harness,
+            self.state["targets"],  # required
             self.state.get("cov") or Coverage(),
-            self.state.get("workdir"),
+            self.state["workdir"],  # required
             self.state.get("corpus_dir"),
             self.state.get("fuzzdict"),
             batch_size=self.batch_size,
@@ -242,7 +244,10 @@ class AgentLLM(LLMBaseline):
         **kwargs,
     ) -> Agent.Response:
         return self.agent.run(
-            self.factory.config.llm, self.render(targets, apis, types), **kwargs
+            model=self.factory.config.llm,
+            messages=self.render(targets, apis, types),
+            targets=targets,
+            **kwargs,
         )
 
 

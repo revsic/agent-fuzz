@@ -229,6 +229,7 @@ class HarnessGenerator:
             # validate
             match result.validated or validator.validate(
                 result.response,
+                targets,
                 covered.global_,
                 workdir,
                 corpus_dir,

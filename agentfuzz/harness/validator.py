@@ -89,6 +89,7 @@ class HarnessValidator:
     def validate(
         self,
         response: str,
+        targets: list[APIGadget],
         global_cov: Coverage,
         workdir: str | None = None,
         corpus_dir: str | None = None,
@@ -99,6 +100,7 @@ class HarnessValidator:
         """Validate a requested harness.
         Args:
             response: a source code of the requested harness.
+            targets: a list of the requested apis.
             global_cov: a coverage descriptor to compare with the fuzzer run.
             workdir: a path to the working directory, use `tempfile.mkdtemp()` if not given.
             corpus_dir: a path to the corpus directory, use `self.factory.config.corpus_dir` if not given.
