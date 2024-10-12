@@ -133,7 +133,7 @@ class HarnessValidator:
             self.logger.log(f"Success to parse the code: work/{filename}.")
 
         ## 2. Compilability
-        retn = self.check_compile(path)
+        retn = self.check_compile(path, targets)
         if isinstance(retn, ValidationError):
             return retn
 
@@ -214,10 +214,13 @@ class HarnessValidator:
         ext, *lines = response[:i].split("\n")
         return ext.strip() or None, "\n".join(lines)
 
-    def check_compile(self, path: str) -> Fuzzer | CompileError:
+    def check_compile(
+        self, path: str, targets: list[APIGadget]
+    ) -> Fuzzer | CompileError:
         """Compile the source code.
         Args:
             path: a path to a source code.
+            targets: a list of the requested apis.
         Returns:
             compiled fuzzer or compile error if failed to compile the given source code.
         """
