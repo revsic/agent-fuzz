@@ -58,8 +58,8 @@ OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
 Benchmark
 
 - [x] cJSON
-- [ ] libpcap
-- [ ] libxml2
+- [x] libpcap
+- [x] libxml2
 
 ### Fuzz-driver generation loop
 
