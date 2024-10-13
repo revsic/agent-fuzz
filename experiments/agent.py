@@ -363,7 +363,7 @@ You should fix the harness to pass all validation steps over several iterations.
 
 At each fixing step, analyze the feedback, write your thoughts step-by-step, and rewrite the harness to call `validate` again.
 
-If you understand, start to understand the project and write a harness.
+If you understand, start to understand the project, write a harness and call `validate`.
 """
 
 
