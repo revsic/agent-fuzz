@@ -78,7 +78,7 @@ class AgentHarnessGeneration(Agent):
         if isinstance(valid_logger, str):
             valid_logger = Logger(valid_logger)
         self.state = {}
-        self.validator = HarnessValidator(factory, logger=valid_logger)
+        self.validator = AugmentedValidator(factory, logger=valid_logger)
         self.batch_size = batch_size
         super().__init__(agent_logger)
 
