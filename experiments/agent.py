@@ -232,6 +232,40 @@ class AgentHarnessGeneration(Agent):
 
         return None
 
+    def pre_llm(self, messages: list[dict[str, str]]):
+        grouped = []
+        while messages:
+            flag = False
+            for i, msg in enumerate(messages):
+                if msg["role"] == "tool":
+                    flag = True
+                if flag and msg["role"] != "tool":
+                    break
+            if not flag or msg["role"] == "tool":
+                grouped.append(messages)
+                break
+            grouped.append(messages[:i])
+            messages = messages[i:]
+        assert grouped
+
+        found = False
+        for i, (fst, *_) in enumerate(grouped):
+            if fst["role"] == "assistant" and any(
+                call["function"]["name"] == "validate"
+                for call in fst.get("tool_calls", [])
+            ):
+                found = True
+                break
+
+        if not found or len(grouped) < 3:
+            return [msg for group in grouped for msg in group]
+
+        return [
+            msg
+            for group in grouped[:i] + grouped[max(i, len(grouped) - 2) :]
+            for msg in group
+        ]
+
 
 class AgentLLM(LLMBaseline):
     def run(
@@ -275,14 +309,15 @@ Create a C++ language program step by step by using {{PROJECT}} library APIs and
 6. Once you just need a string of file name, directly using "input_file" or "output_file" as the file name.
 7. Release all allocated resources before return.
 
-Before write a harness, call `find_definition`, `find_references` and `read_file` to gain a sufficient understand of the project.
+Before writing a harness, call `find_definition`, `find_references`, and `read_file` to gain a sufficient understanding of the given *several* APIs.
+(We do not recommend querying all APIs exported from {{PROJECT}}. Only query the necessary APIs, and if more information is needed, perform additional queries when required.)
 
-After you write a fuzz harness, call `validate` to validate your harness.
-You should fix the harness to pass all validation steps in some iterations.
+After you writing a fuzz harness that contains those *several* APIs, call `validate` to verify your harness.
+You should fix the harness to pass all validation steps over several iterations.
 
-Repeat the harness in your response and end the conversation if the validation success.
+At each fixing step, analyze the feedback, write your thoughts step-by-step, and rewrite the harness to call `validate` again.
 
-If you understand, start to understand the project and write a harness.
+If you understand, start to understand the project, write a harness and call `validate`.
 """
 
 

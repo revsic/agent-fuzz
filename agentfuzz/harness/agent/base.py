@@ -62,6 +62,13 @@ class Agent:
             + per_output * response.usage.completion_tokens
         )
 
+    def pre_llm(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
+        """Hook before call the LLM for updating the conversation.
+        Args:
+            messages: a list of human-LLM conversation.
+        """
+        return messages
+
     def pre_call(self, fn: str, args: dict):
         """Hook before call the tool.
         Args:
@@ -114,6 +121,9 @@ class Agent:
         # single conversation if tool does not exist
         if tools is None:
             try:
+                # hook before LLM
+                messages = self.pre_llm(messages)
+                # call LLM
                 response = litellm.completion(
                     model=model,
                     messages=messages,
@@ -153,8 +163,10 @@ class Agent:
         ]
         total_price = None
         for turn in range(max_turns):
-            # call LLM
             try:
+                # hook before LLM
+                messages = self.pre_llm(messages)
+                # call LLM
                 response = litellm.completion(
                     model=model,
                     messages=messages,
