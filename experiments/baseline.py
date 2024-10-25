@@ -22,6 +22,7 @@ if __name__ == "__main__":
             timeout_unit=10,
         ),
     )
+    project.precheck(_hook=True, _errfile=f"{workdir}/precheck.failed")
     project.run(
         load_from_state=False,
         logger=os.path.join(workdir, "harness-gen.log"),

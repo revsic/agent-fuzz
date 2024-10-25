@@ -1,7 +1,10 @@
 import os
+import tempfile
 from dataclasses import dataclass, field
 
-from agentfuzz.analyzer import Factory
+from tqdm.auto import tqdm
+
+from agentfuzz.analyzer import APIGadget, Factory
 from agentfuzz.config import Config
 from agentfuzz.language.cpp.ast import ClangASTParser
 from agentfuzz.language.cpp.compiler import Clang, _CXXFLAGS
@@ -86,3 +89,44 @@ class CppSupports(LanguageSupports):
             config: a path to the configuration file, yaml format.
         """
         return cls(projdir, cls._Config.load_from_yaml(config))
+
+    def precheck(
+        self,
+        _hook: bool = False,
+        _errfile: str | None = None,
+        _verbose: bool = True,
+    ) -> list[APIGadget]:
+        """Check the API compilability.
+        Args:
+            _hook: whether hook the `Factory.listup_apis` to only compilable APIs or not.
+        Returns:
+            compilable APIs.
+        """
+        passed = []
+        temp = tempfile.mktemp(suffix=f".{self.factory.config.ext}")
+        for api in tqdm(self.factory.listup_apis()):
+            with open(temp, "w") as f:
+                f.write(
+                    f"""
+#include <stdlib.h>
+#include <stdint.h>
+#include "{api._meta["__source__"]}"
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {{
+(void){api.name};
+}}
+"""
+                )
+            try:
+                self.factory.compiler.compile(temp)
+                passed.append(api)
+            except Exception as e:
+                if _verbose:
+                    print(f"{api.signature()}: COMPILE FAILURE, {e}\n")
+                if _errfile:
+                    with open(_errfile, "a") as f:
+                        f.write(f"{api.signature()}: COMPILE FAILURE\n{e}\n\n")
+        os.remove(temp)
+        if _hook:
+            self.factory.listup_apis = lambda: passed
+        return passed

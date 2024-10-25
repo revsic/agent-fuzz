@@ -335,6 +335,7 @@ if __name__ == "__main__":
         "%Y.%m.%dT%H:%M"
     )
     workdir = f"./workspace/{args.target}/{stamp}"
+    os.makedirs(workdir, exist_ok=True)
     # load config
     config = CppSupports._Config.load_from_yaml(os.path.join(benchmark, "config.yaml"))
     config.srcdir = os.path.join(benchmark, config.srcdir)
@@ -346,6 +347,7 @@ if __name__ == "__main__":
         config.libpath = os.path.join(benchmark, config.libpath)
     config.include_dir = [os.path.join(benchmark, dir_) for dir_ in config.include_dir]
     project = CppSupports(workdir, config)
+    project.precheck(_hook=True, _errfile=f"{workdir}/precheck.failed")
 
     generator = HarnessGenerator(
         project.factory,
