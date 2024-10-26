@@ -56,7 +56,7 @@ cp install/lib/libpcap.a $WORKDIR/lib
 # copy header files
 mkdir -p $WORKDIR/include
 cp -r install/include/* $WORKDIR/include
-# $SRCDIR/cJSON
+# $SRCDIR/libpcap
 popd
 # $SRCDIR
 popd

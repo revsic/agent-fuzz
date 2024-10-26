@@ -63,7 +63,7 @@ cp install/lib/libxml2.so $WORKDIR/lib
 mkdir -p $WORKDIR/include
 cp -r install/include/libxml2/libxml/ $WORKDIR/include
 
-# $SRCDIR/cJSON
+# $SRCDIR/libxml2
 popd
 
 # copy corpus
