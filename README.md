@@ -58,8 +58,10 @@ OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
 Benchmark
 
 - [x] cJSON
-- [ ] libpcap
-- [ ] libxml2
+- [x] libpcap
+- [x] libxml2
+- [ ] libtiff
+- [ ] libaom
 
 ### Fuzz-driver generation loop
 
@@ -68,6 +70,7 @@ Static analysis
 - [x] Clang AST parser supports
 - [x] Collect API function/type gadgets
 - [ ] Infer input constraints 
+- [ ] Literal analysis, FDP supports
 - [x] Critical path extraction
 
 Dynamic analysis
