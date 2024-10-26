@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -347,7 +348,9 @@ if __name__ == "__main__":
         config.libpath = os.path.join(benchmark, config.libpath)
     config.include_dir = [os.path.join(benchmark, dir_) for dir_ in config.include_dir]
     project = CppSupports(workdir, config)
-    project.precheck(_hook=True, _errfile=f"{workdir}/precheck.failed")
+    checked = project.precheck(_hook=True, _errfile=f"{workdir}/precheck.failed")
+    with open(os.path.join(workdir, "prechecked.json"), "w") as f:
+        json.dumps([api.dump() for api in checked], f, indent=2, ensure_ascii=False)
 
     generator = HarnessGenerator(
         project.factory,
@@ -363,4 +366,5 @@ if __name__ == "__main__":
         ),
         logger=os.path.join(workdir, "harness-gen.log"),
     )
+    generator.logger.log(f"Prechecked, possible APIs: {len(checked)}")
     generator.run(load_from_state=True)
