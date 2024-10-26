@@ -220,6 +220,13 @@ class AgentHarnessGeneration(Agent):
         return super().run(model, messages, tools)
 
     def post_call(self, fn: str, args: dict, retn: any) -> Agent.Response | None:
+        """Hook for instant response after validation success.
+        Args:
+            fn: the name of the tool called.
+            retn: the return value from the tool call.
+        Returns:
+            instant response when validation success, otherwise None.
+        """
         if fn == "validate" and isinstance(retn, dict) and retn.get("success"):
             validated: Success = retn.pop("validated")
             # TODO: support a json serialization for `Success`
@@ -233,7 +240,14 @@ class AgentHarnessGeneration(Agent):
 
         return None
 
-    def pre_llm(self, messages: list[dict[str, str]]):
+    def pre_llm(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
+        """Hook for maintining the conversation concise.
+        Args:
+            messages: previous conversation.
+        Returns:
+            simplified conversation (remove middle of validation tool calls)
+        """
+        # group in tool call conversations
         grouped = []
         while messages:
             flag = False
@@ -248,19 +262,14 @@ class AgentHarnessGeneration(Agent):
             grouped.append(messages[:i])
             messages = messages[i:]
         assert grouped
-
-        found = False
+        # find the first validation
         for i, (fst, *_) in enumerate(grouped):
             if fst["role"] == "assistant" and any(
                 call["function"]["name"] == "validate"
                 for call in fst.get("tool_calls", [])
             ):
-                found = True
                 break
-
-        if not found or len(grouped) < 3:
-            return [msg for group in grouped for msg in group]
-
+        # remove the middle of validation calls.
         return [
             msg
             for group in grouped[:i] + grouped[max(i, len(grouped) - 2) :]
