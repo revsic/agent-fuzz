@@ -4,6 +4,7 @@ import re
 import subprocess
 import tempfile
 import traceback
+import warnings
 from typing import Callable
 
 from agentfuzz.analyzer.static.ast import APIGadget, ASTParser, TypeGadget
@@ -155,7 +156,12 @@ class ClangASTParser(ASTParser):
             if args_t.endswith("..."):
                 arguments.append((None, "..."))
             # sanity check
-            assert args_t == ", ".join(t for _, t in arguments)
+            if args_t != ", ".join(t for _, t in arguments):
+                warnings.warn(
+                    f"invalid sanity: id `{node['id']}`, named `{node['name']}`"
+                    f" , originally `{args_t}`, but got `{arguments}`"
+                )
+                continue
             gadget = CStyleAPIGadget(
                 name=node["name"],
                 return_type=return_t,
