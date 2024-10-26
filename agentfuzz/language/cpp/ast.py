@@ -87,6 +87,8 @@ class ClangASTParser(ASTParser):
             file = loc.get("file") or loc.get("includedFrom", {}).get("file")
             if file is not None and file != source:
                 continue
+            if "name" not in node:
+                continue
 
             gadget = CStyleTypeGadget(
                 name=node.get("name"),
