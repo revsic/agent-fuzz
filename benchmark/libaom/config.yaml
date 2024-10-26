@@ -1,6 +1,6 @@
 # Config
 name: libaom
-srcdir: ./workspace/src/libaom
+srcdir: ./workspace/src/aom
 postfix:
   - .h
   - .hpp
