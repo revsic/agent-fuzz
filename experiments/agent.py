@@ -337,6 +337,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", default="cjson")
     parser.add_argument("--stamp", default=None)
+    parser.add_argument("--check-only", default=False, action="store_true")
     args = parser.parse_args()
     # target project
     benchmark = os.path.abspath(f"{__file__}/../../benchmark/{args.target}")
@@ -359,21 +360,24 @@ if __name__ == "__main__":
     project = CppSupports(workdir, config)
     checked = project.precheck(_hook=True, _errfile=f"{workdir}/precheck.failed")
     with open(os.path.join(workdir, "prechecked.json"), "w") as f:
-        json.dumps([api.dump() for api in checked], f, indent=2, ensure_ascii=False)
+        json.dump([api.dump() for api in checked], f, indent=2, ensure_ascii=False)
 
-    generator = HarnessGenerator(
-        project.factory,
-        project.workdir,
-        llm=AgentLLM(
+    if args.check_only:
+        print(f"Prechecked, possible APIs: {len(checked)}")
+    else:
+        generator = HarnessGenerator(
             project.factory,
-            AgentHarnessGeneration(
+            project.workdir,
+            llm=AgentLLM(
                 project.factory,
-                agent_logger=os.path.join(workdir, "agent.log"),
-                valid_logger=os.path.join(workdir, "validator.log"),
+                AgentHarnessGeneration(
+                    project.factory,
+                    agent_logger=os.path.join(workdir, "agent.log"),
+                    valid_logger=os.path.join(workdir, "validator.log"),
+                ),
+                BaselinePrompt(_AGENT_MD),
             ),
-            BaselinePrompt(_AGENT_MD),
-        ),
-        logger=os.path.join(workdir, "harness-gen.log"),
-    )
-    generator.logger.log(f"Prechecked, possible APIs: {len(checked)}")
-    generator.run(load_from_state=True)
+            logger=os.path.join(workdir, "harness-gen.log"),
+        )
+        generator.logger.log(f"Prechecked, possible APIs: {len(checked)}")
+        generator.run(load_from_state=True)
