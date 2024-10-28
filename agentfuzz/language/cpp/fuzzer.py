@@ -34,6 +34,7 @@ class LibFuzzer(Fuzzer):
         # for supporting parallel run
         self._proc: subprocess.Popen | None = None
         self._timeout: float | None = None
+        self._last_vis: str | None = None
 
     def minimize(self, corpus_dir: str, outdir: str | None = None) -> str | None:
         """Minimize the corpus with a `-merge=1` option.
@@ -180,15 +181,60 @@ class LibFuzzer(Fuzzer):
             int | Exception: the return code or the exceptions during run the fuzzer.
             tuple[Coverage, Coverage]: the coverage descriptors about library and fuzzer-itself.
         """
+        profdata = None
         with mp.Pool(batch_size) as pool:
-            yield from pool.imap_unordered(
+            for corpus_dir, retn, covs, _profile in pool.imap_unordered(
                 _batch_run_proxy,
                 [
                     (self, corpus_dir, fuzzdict, timeout, runs, return_cov)
                     for corpus_dir in corpus_dirs
                 ],
                 chunksize=batch_size * 2,
-            )
+            ):
+                if profdata is None:
+                    profdata = tempfile.mktemp(".profdata")
+                    with open(profdata, "wb") as f:
+                        f.write(_profile)
+                else:
+                    with tempfile.TemporaryFile("wb", suffix=".profdata") as f:
+                        f.write(_profile)
+                        f.close()
+
+                        try:
+                            subprocess.run(
+                                [
+                                    "llvm-profdata",
+                                    "merge",
+                                    "-sparse",
+                                    profdata,
+                                    f.name,
+                                    "-o",
+                                    profdata,
+                                ],
+                                capture_output=True,
+                                check=True,
+                            )
+                        except:
+                            continue
+                yield corpus_dir, retn, covs
+
+        if profdata is not None:
+            self._last_vis = None
+            try:
+                proc = subprocess.run(
+                    [
+                        "llvm-cov",
+                        "show",
+                        f"--instr-profile={profdata}",
+                        self.path,
+                        "--name=LLVMFuzzerTestOneInput",
+                    ],
+                    capture_output=True,
+                    check=True,
+                )
+                self._last_vis = proc.stdout.decode("utf-8", errors="replace")
+            except:
+                pass
 
     def poll(self) -> int | None | Exception:
         """Poll the return code of the fuzzer process and clear if process done.
@@ -366,5 +412,8 @@ def _batch_run_proxy(
             cov_fuz = fuzzer.coverage(itself=True, _profile=_profile)
         except Exception as e:
             return corpus_dir, e, None
+        # for rough merge supports
+        with open(_profile.replace(".profraw", ".profdata"), "rb") as f:
+            profdata = f.read()
 
-    return corpus_dir, retn, (cov_lib, cov_fuz)
+    return corpus_dir, retn, (cov_lib, cov_fuz), profdata

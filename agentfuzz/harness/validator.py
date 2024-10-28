@@ -46,6 +46,7 @@ class CoverageNotGrow(ValidationError):
 
     cov_global: float
     cov_local: float
+    _last_vis: str | None = None
 
 
 @dataclass
@@ -53,6 +54,7 @@ class CriticalPathNotHit(ValidationError):
     """If a parsed critical path is not fully covered by the fuzzer run"""
 
     critical_paths: list[list[tuple[APIGadget | str, int | None, str]]]
+    _last_vis: str | None = None
 
     def _render(self) -> list[str]:
         _name = lambda g: g if isinstance(g, str) else g.name
@@ -168,14 +170,16 @@ class HarnessValidator:
             )
 
         ## 5. Coverage growth
-        retn = self.check_cov_growth(global_cov, cov_lib)
+        retn = self.check_cov_growth(global_cov, cov_lib, _last_vis=fuzzer._last_vis)
         if isinstance(retn, ValidationError):
             return retn
         if self.logger is not None:
             self.logger.log(f"Coverage was grown while last fuzzer run.")
 
         ## 6. Critical Path Coverage
-        retn = self.check_critical_path_hit(path, cov_fuzz, self.apis)
+        retn = self.check_critical_path_hit(
+            path, cov_fuzz, self.apis, _last_vis=fuzzer._last_vis
+        )
         if isinstance(retn, ValidationError):
             return retn
         if self.logger is not None:
@@ -321,7 +325,10 @@ class HarnessValidator:
         return cov_lib, cov_fuzz
 
     def check_cov_growth(
-        self, global_: Coverage, local: Coverage
+        self,
+        global_: Coverage,
+        local: Coverage,
+        _last_vis: str | None = None,
     ) -> None | CoverageNotGrow:
         """Check whether the unique branch was found.
         Args:
@@ -332,7 +339,9 @@ class HarnessValidator:
         if set(local.flat(nonzero=True)) - set(global_.flat(nonzero=True)):
             return None
         return CoverageNotGrow(
-            cov_global=global_.coverage_branch, cov_local=local.coverage_branch
+            cov_global=global_.coverage_branch,
+            cov_local=local.coverage_branch,
+            _last_vis=_last_vis,
         )
 
     def check_critical_path_hit(
@@ -340,6 +349,7 @@ class HarnessValidator:
         path: str,
         cov: Coverage,
         gadgets: list[APIGadget] | None = None,
+        _last_vis: str | None = None,
     ) -> list[list[tuple[str | APIGadget, int | None]]] | CriticalPathNotHit:
         """Check whether the fuzzer cover full critical path.
         Args:
@@ -378,4 +388,5 @@ class HarnessValidator:
                 [(gadget, lineno, _label(lineno)) for gadget, lineno in critical_path]
                 for critical_path in critical_paths
             ],
+            _last_vis=_last_vis,
         )

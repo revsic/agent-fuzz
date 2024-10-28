@@ -189,11 +189,13 @@ class AgentHarnessGeneration(Agent):
                 return {
                     "error": "coverage-growth",
                     "description": f"current coverage: {err.cov_local * 100:.2f}%, global coverage: {err.cov_global * 100:.2f}",
+                    "visualize": err._last_vis,
                 }
             case CriticalPathNotHit() as err:
                 return {
                     "error": "api-hit",
                     "description": "- " + "\n- ".join(err._render()),
+                    "visualize": err._last_vis,
                 }
             case Success() as succ:
                 return {"success": True, "validated": succ}
