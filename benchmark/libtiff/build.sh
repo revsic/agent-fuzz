@@ -35,7 +35,7 @@ git checkout v4.7.0
 BUILDIR=$WORKDIR/build
 mkdir -p $BUILDIR && pushd $BUILDIR
 # build
-FLAGS="-g -fprofile-instr-generate -fcoverage-mapping -fsanitize=fuzzer-no-link -fno-sanitize=undefined,address"
+FLAGS="-g -fprofile-instr-generate -fcoverage-mapping"
 export CC=clang
 export CXX=clang++
 export CFLAGS="$CFLAGS $FLAGS"
