@@ -40,7 +40,7 @@ bash build.sh
 #     | json.dict
 ```
 
-Run the agent fuzz, reference sample [benchmark/cjson/config](./benchmark/cjson/config.yaml)
+Run the PromptFuzz, reference sample [benchmark/cjson/config](./benchmark/cjson/config.yaml)
 ```bash
 cd benchmark/cjson
 OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
@@ -49,7 +49,11 @@ OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
     --config config.yaml
 ```
 
-[TODO] Visualize the fuzzing results
+(Experimental) Agentic fuzz harness generation.
+```bash
+cd experiments
+OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agent.py --target=cjson
+```
 
 ## Roadmap
 
@@ -60,8 +64,8 @@ Benchmark
 - [x] cJSON
 - [x] libpcap
 - [x] libxml2
-- [ ] libtiff
-- [ ] libaom
+- [x] libtiff
+- [x] libaom
 
 ### Fuzz-driver generation loop
 
