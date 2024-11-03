@@ -137,7 +137,8 @@ class LibFuzzer(Fuzzer):
         self._proc = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
-            stderr=open(_logfile or f"{self.path}.log", "wb"),
+            # stderr=open(_logfile or f"{self.path}.log", "wb"),
+            stderr=subprocess.DEVNULL,
             env={
                 **os.environ,
                 "LLVM_PROFILE_FILE": _profile,
@@ -235,6 +236,7 @@ class LibFuzzer(Fuzzer):
                 self._last_vis = proc.stdout.decode("utf-8", errors="replace")
             except:
                 pass
+            os.remove(profdata)
 
     def poll(self) -> int | None | Exception:
         """Poll the return code of the fuzzer process and clear if process done.
