@@ -1,23 +1,21 @@
-import json
 import os
-from datetime import datetime, timedelta, timezone
 
 import litellm
 
 from agentfuzz.analyzer import APIGadget, Factory, TypeGadget
 from agentfuzz.analyzer.dynamic.coverage import Coverage
-from agentfuzz.harness import HarnessGenerator, HarnessValidator
 from agentfuzz.harness.agent import Agent, AgentLogger
-from agentfuzz.harness.llm import LLMBaseline, BaselinePrompt
+from agentfuzz.harness.generator import HarnessGenerator
+from agentfuzz.harness.llm import BaselinePrompt, LLMBaseline
 from agentfuzz.harness.validator import (
-    ParseError,
     CompileError,
-    FuzzerError,
     CoverageNotGrow,
     CriticalPathNotHit,
+    FuzzerError,
+    HarnessValidator,
+    ParseError,
     Success,
 )
-from agentfuzz.language import CppSupports
 from agentfuzz.logger import Logger
 
 
@@ -331,53 +329,30 @@ If you understand, start to understand the project, write a harness and call `va
 """
 
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--target", default="cjson")
-    parser.add_argument("--stamp", default=None)
-    parser.add_argument("--check-only", default=False, action="store_true")
-    args = parser.parse_args()
-    # target project
-    benchmark = os.path.abspath(f"{__file__}/../../benchmark/{args.target}")
-    # construct project
-    stamp = args.stamp or datetime.now(timezone(timedelta(hours=9))).strftime(
-        "%Y.%m.%dT%H:%M"
-    )
-    workdir = f"./workspace/{args.target}/{stamp}"
-    os.makedirs(workdir, exist_ok=True)
-    # load config
-    config = CppSupports._Config.load_from_yaml(os.path.join(benchmark, "config.yaml"))
-    config.srcdir = os.path.join(benchmark, config.srcdir)
-    if config.fuzzdict is not None:
-        config.fuzzdict = os.path.join(benchmark, config.fuzzdict)
-    if config.corpus_dir is not None:
-        config.corpus_dir = os.path.join(benchmark, config.corpus_dir)
-    if config.libpath is not None:
-        config.libpath = os.path.join(benchmark, config.libpath)
-    config.include_dir = [os.path.join(benchmark, dir_) for dir_ in config.include_dir]
-    project = CppSupports(workdir, config)
-    checked = project.precheck(_hook=True, _errfile=f"{workdir}/precheck.failed")
-    with open(os.path.join(workdir, "prechecked.json"), "w") as f:
-        json.dump([api.dump() for api in checked], f, indent=2, ensure_ascii=False)
-
-    if args.check_only:
-        print(f"Prechecked, possible APIs: {len(checked)}")
-    else:
-        generator = HarnessGenerator(
-            project.factory,
-            project.workdir,
-            llm=AgentLLM(
-                project.factory,
+class AgenticHarnessGenerator(HarnessGenerator):
+    def __init__(
+        self,
+        factory: Factory,
+        workdir: str | None = None,
+        logger: Logger | str | None = None,
+        _agent_logger: AgentLogger | str | None = None,
+        _valid_logger: Logger | str | None = None,
+        _clear_previous_work: bool = False,
+        _prompt: str | None = None,
+    ):
+        super().__init__(
+            factory,
+            workdir,
+            AgentLLM(
+                factory,
                 AgentHarnessGeneration(
-                    project.factory,
-                    agent_logger=os.path.join(workdir, "agent.log"),
-                    valid_logger=os.path.join(workdir, "validator.log"),
+                    factory,
+                    agent_logger=_agent_logger or os.path.join(workdir, "agent.log"),
+                    valid_logger=_valid_logger
+                    or os.path.join(workdir, "validator.log"),
                 ),
-                BaselinePrompt(_AGENT_MD),
+                BaselinePrompt(_prompt or _AGENT_MD),
             ),
-            logger=os.path.join(workdir, "harness-gen.log"),
+            logger=logger or os.path.join(workdir, "harness-gen.log"),
+            _clear_previous_work=_clear_previous_work,
         )
-        generator.logger.log(f"Prechecked, possible APIs: {len(checked)}")
-        generator.run(load_from_state=True)

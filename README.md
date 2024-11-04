@@ -66,6 +66,9 @@ Benchmark
 - [x] libxml2
 - [x] libtiff
 - [x] libaom
+- [ ] zlib
+- [ ] c-ares
+- [ ] lcms
 
 ### Fuzz-driver generation loop
 

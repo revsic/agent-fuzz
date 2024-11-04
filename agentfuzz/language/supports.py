@@ -3,7 +3,7 @@ import traceback
 
 from agentfuzz.analyzer import Factory
 from agentfuzz.config import Config
-from agentfuzz.harness.generator import HarnessGenerator
+from agentfuzz.harness import AgenticHarnessGenerator, HarnessGenerator
 
 
 class LanguageSupports:
@@ -12,7 +12,7 @@ class LanguageSupports:
     # Language specific configuration and factory
     _Config: type[Config] = Config
     _Factory: type[Factory] = Factory
-    _Generator: type[HarnessGenerator] = HarnessGenerator
+    _Generator: type[HarnessGenerator] = AgenticHarnessGenerator
 
     def __init__(self, workdir: str, config: Config, factory: Factory):
         """Initialize the agent-fuzz projects for a target language.
