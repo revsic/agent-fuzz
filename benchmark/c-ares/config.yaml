@@ -1,0 +1,14 @@
+# Config
+name: c-ares
+srcdir: ./workspace/src/c-ares
+postfix:
+  - .h
+  - .hpp
+  - .hxx
+corpus_dir: ./workspace/corpus
+# CppConfig
+libpath: ./workspace/lib/libcares.so
+include_dir:
+  - ./workspace/include
+timeout: 60
+timeout_unit: 10

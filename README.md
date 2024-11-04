@@ -70,7 +70,7 @@ Benchmark
 - [x] libtiff
 - [x] libaom
 - [x] zlib
-- [ ] c-ares
+- [x] c-ares
 - [ ] lcms
 
 ### Fuzz-driver generation loop
