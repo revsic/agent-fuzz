@@ -40,7 +40,7 @@ bash build.sh
 #     | json.dict
 ```
 
-Run the PromptFuzz, reference sample [benchmark/cjson/config](./benchmark/cjson/config.yaml)
+Run the agentic harness generator, reference sample [benchmark/cjson/config](./benchmark/cjson/config.yaml)
 ```bash
 cd benchmark/cjson
 OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
@@ -49,10 +49,13 @@ OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agentfuzz \
     --config config.yaml
 ```
 
-(Experimental) Agentic fuzz harness generation.
+Run the benchmarks.
 ```bash
 cd experiments
+# cjson
 OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agent.py --target=cjson
+# libpcap
+OPENAI_API_KEY=$YOUR_API_KEY_HERE python -m agent.py --target=libpcap
 ```
 
 ## Roadmap
