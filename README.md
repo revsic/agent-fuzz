@@ -71,7 +71,7 @@ Benchmark
 - [x] libaom
 - [x] zlib
 - [x] c-ares
-- [ ] lcms
+- [x] lcms
 
 ### Fuzz-driver generation loop
 

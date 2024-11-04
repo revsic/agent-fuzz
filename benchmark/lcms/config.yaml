@@ -1,0 +1,15 @@
+# Config
+name: lcms
+srcdir: ./workspace/src/Little-CMS
+postfix:
+  - .h
+  - .hpp
+  - .hxx
+fuzzdict: ./workspace/dict/icc.dict
+corpus_dir: ./workspace/corpus
+# CppConfig
+libpath: ./workspace/lib/liblcms2.so
+include_dir:
+  - ./workspace/include
+timeout: 60
+timeout_unit: 10
