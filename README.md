@@ -69,7 +69,7 @@ Benchmark
 - [x] libxml2
 - [x] libtiff
 - [x] libaom
-- [ ] zlib
+- [x] zlib
 - [ ] c-ares
 - [ ] lcms
 
