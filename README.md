@@ -53,9 +53,9 @@ Run the benchmarks.
 ```bash
 cd experiments
 # cjson
-OPENAI_API_KEY=$YOUR_API_KEY_HERE python agent.py --target=cjson
+OPENAI_API_KEY=$YOUR_API_KEY_HERE python baseline.py --target=cjson
 # libpcap
-OPENAI_API_KEY=$YOUR_API_KEY_HERE python agent.py --target=libpcap
+OPENAI_API_KEY=$YOUR_API_KEY_HERE python baseline.py --target=libpcap
 ```
 
 ## Roadmap
